@@ -3,7 +3,7 @@ import pytest
 import pytest_asyncio
 
 from database import init_db
-from models import Signal, SignalStrength, Order, OrderSide, OrderStatus, Position
+from models import Order, OrderSide, OrderStatus, Position, Signal, SignalStrength
 
 
 @pytest_asyncio.fixture

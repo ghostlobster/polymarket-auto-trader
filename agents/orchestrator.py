@@ -6,13 +6,12 @@ from datetime import datetime
 
 import structlog
 
-from agents.base import BaseAgent
 from agents.market_scanner import MarketScannerAgent
-from agents.research_analyst import ResearchAnalystAgent
-from agents.signal_generator import SignalGeneratorAgent
-from agents.risk_manager import RiskManagerAgent
 from agents.order_executor import OrderExecutorAgent
 from agents.portfolio_monitor import PortfolioMonitorAgent
+from agents.research_analyst import ResearchAnalystAgent
+from agents.risk_manager import RiskManagerAgent
+from agents.signal_generator import SignalGeneratorAgent
 from config import Settings
 from database import Database
 from models import AgentMessage, PortfolioSnapshot
@@ -104,7 +103,6 @@ class OrchestratorAgent:
         # Step 3-6: Research, signal, risk, execute for each opportunity
         for opp in opportunities:
             question = opp.get("question", "Unknown")
-            market_id = opp.get("condition_id", "")
 
             try:
                 # Research

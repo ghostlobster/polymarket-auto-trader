@@ -7,10 +7,8 @@ Usage:
 """
 import asyncio
 import signal
-import sys
 
 import structlog
-from structlog.stdlib import AsyncBoundLogger
 
 from agents import OrchestratorAgent
 from config import Settings

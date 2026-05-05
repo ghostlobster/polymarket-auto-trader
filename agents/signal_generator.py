@@ -2,7 +2,6 @@
 SignalGeneratorAgent: synthesizes research into a structured trading signal.
 """
 import json
-from datetime import datetime
 
 import structlog
 

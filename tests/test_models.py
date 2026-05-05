@@ -1,8 +1,19 @@
 """Tests for Pydantic data models."""
-import pytest
 from datetime import datetime
 
-from models import Market, Order, OrderSide, OrderType, OrderStatus, Position, Signal, SignalStrength, AgentMessage
+import pytest
+
+from models import (
+    AgentMessage,
+    Market,
+    Order,
+    OrderSide,
+    OrderStatus,
+    OrderType,
+    Position,
+    Signal,
+    SignalStrength,
+)
 from models.market import OrderBook, PriceLevel
 
 
@@ -25,7 +36,7 @@ def test_orderbook_empty():
 
 
 def test_market_days_to_resolution():
-    from datetime import timezone, timedelta
+    from datetime import timedelta, timezone
     future = (datetime.now(timezone.utc) + timedelta(days=10)).isoformat()
     market = Market(condition_id="x", question="Will X happen?", end_date_iso=future)
     days = market.days_to_resolution

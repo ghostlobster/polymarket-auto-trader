@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import Enum
+
 from pydantic import BaseModel, Field
 
 
@@ -24,9 +25,9 @@ class OrderBook(BaseModel):
 
     def model_post_init(self, __context) -> None:
         if self.bids:
-            self.best_bid = max(l.price for l in self.bids)
+            self.best_bid = max(level.price for level in self.bids)
         if self.asks:
-            self.best_ask = min(l.price for l in self.asks)
+            self.best_ask = min(level.price for level in self.asks)
         if self.best_bid and self.best_ask:
             self.spread = round(self.best_ask - self.best_bid, 4)
             self.mid = round((self.best_bid + self.best_ask) / 2, 4)

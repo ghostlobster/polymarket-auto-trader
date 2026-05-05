@@ -1,8 +1,9 @@
 """Tests for risk management logic."""
-import pytest
 from unittest.mock import AsyncMock, patch
 
-from models import Signal, SignalStrength, PortfolioSnapshot
+import pytest
+
+from models import PortfolioSnapshot, Signal, SignalStrength
 
 
 def make_signal(edge=0.12, confidence=0.75, market_price=0.50):

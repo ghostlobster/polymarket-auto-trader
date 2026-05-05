@@ -1,8 +1,9 @@
 """Tests for signal generation logic (no API calls)."""
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
-from models import Signal, SignalStrength
+import pytest
+
+from models import SignalStrength
 
 
 @pytest.mark.asyncio

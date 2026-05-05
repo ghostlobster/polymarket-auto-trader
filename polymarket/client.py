@@ -10,16 +10,14 @@ import structlog
 from py_clob_client.client import ClobClient
 from py_clob_client.clob_types import (
     ApiCreds,
-    BookParams,
     MarketOrderArgs,
     OrderArgs,
-    OrderType,
 )
-from py_clob_client.constants import POLYGON
 from py_clob_client.order_builder.constants import BUY, SELL
 
 from config import Settings
-from models import Market, Order, OrderBook, OrderSide, OrderStatus, OrderType as OT, Position, PriceLevel
+from models import Market, Order, OrderBook, OrderSide, OrderStatus, Position, PriceLevel
+from models import OrderType as OT
 
 log = structlog.get_logger(__name__)
 

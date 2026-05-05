@@ -7,7 +7,6 @@ import structlog
 
 from agents.base import BaseAgent
 from config import Settings
-from models import Market
 from polymarket.client import PolymarketClient
 from tools import build_market_tools
 

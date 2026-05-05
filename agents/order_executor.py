@@ -1,7 +1,6 @@
 """
 OrderExecutorAgent: places and manages orders on Polymarket.
 """
-import asyncio
 import json
 from datetime import datetime
 

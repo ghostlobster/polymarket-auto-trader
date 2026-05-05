@@ -1,8 +1,8 @@
 from .market import Market, OrderBook, PriceLevel, TokenType
-from .order import Order, OrderSide, OrderType, OrderStatus
-from .position import Position, PortfolioSnapshot
-from .signal import Signal, SignalStrength
 from .messages import AgentMessage
+from .order import Order, OrderSide, OrderStatus, OrderType
+from .position import PortfolioSnapshot, Position
+from .signal import Signal, SignalStrength
 
 __all__ = [
     "Market", "OrderBook", "PriceLevel", "TokenType",

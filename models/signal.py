@@ -1,7 +1,8 @@
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator
 from uuid import uuid4
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class SignalStrength(str, Enum):

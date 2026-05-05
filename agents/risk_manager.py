@@ -7,7 +7,7 @@ import structlog
 
 from agents.base import BaseAgent
 from config import Settings
-from models import Signal, PortfolioSnapshot
+from models import PortfolioSnapshot, Signal
 
 log = structlog.get_logger(__name__)
 

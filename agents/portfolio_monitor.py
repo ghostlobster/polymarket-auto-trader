@@ -9,9 +9,9 @@ import structlog
 from agents.base import BaseAgent
 from config import Settings
 from database import Database
-from models import PortfolioSnapshot, Position
+from models import PortfolioSnapshot
 from polymarket.client import PolymarketClient
-from tools import build_market_tools, build_db_tools
+from tools import build_db_tools, build_market_tools
 
 log = structlog.get_logger(__name__)
 

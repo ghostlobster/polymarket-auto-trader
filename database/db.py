@@ -4,7 +4,7 @@ from pathlib import Path
 
 import aiosqlite
 
-from models import Signal, Order, Position, AgentMessage, PortfolioSnapshot
+from models import AgentMessage, Order, PortfolioSnapshot, Position, Signal
 
 
 class Database:
