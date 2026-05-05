@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Build / dist
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# pyright
+pyrightconfig.json
