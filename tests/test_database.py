@@ -1,13 +1,12 @@
 """Tests for database layer."""
 import pytest
-import asyncio
-import os
+import pytest_asyncio
 
 from database import init_db
 from models import Signal, SignalStrength, Order, OrderSide, OrderStatus, Position
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def db(tmp_path):
     db_path = str(tmp_path / "test.db")
     database = await init_db(db_path)
