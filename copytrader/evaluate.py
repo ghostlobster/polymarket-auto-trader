@@ -165,7 +165,7 @@ async def evaluate(wallet: str, since: str, capital: float, preset_name: str) ->
     print(f"  unrealized PnL (last) : ${unrealized:+.2f}")
     print(f"  win/loss closed       : {perf.win_count}/{perf.loss_count}")
     print(f"  ending cash           : ${available:+.2f}")
-    print(f"  written to copy_performance(mode='backtest')")
+    print("  written to copy_performance(mode='backtest')")
     await db.close()
 
 

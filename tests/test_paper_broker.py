@@ -1,5 +1,4 @@
 """PaperBroker tests — uses an in-memory DB and a fake PolymarketClient."""
-from dataclasses import dataclass
 
 import pytest
 import pytest_asyncio

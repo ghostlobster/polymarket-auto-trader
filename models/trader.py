@@ -4,7 +4,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-
 # Trader status lifecycle:
 #   discovered -> shadow -> paper -> live
 #                                 \-> disabled

@@ -6,7 +6,6 @@ import aiosqlite
 
 from models import AgentMessage, Order, PortfolioSnapshot, Position, Signal
 
-
 # Idempotent ALTER TABLE migrations for users with pre-existing DBs.
 # Each tuple is (table, column, ddl_fragment).
 _MIGRATIONS = [
@@ -314,7 +313,8 @@ class Database:
         from models import PaperPosition
         clauses, args = [], []
         if wallet is not None:
-            clauses.append("wallet=?"); args.append(wallet)
+            clauses.append("wallet=?")
+            args.append(wallet)
         if open_only:
             clauses.append("closed_at IS NULL")
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""

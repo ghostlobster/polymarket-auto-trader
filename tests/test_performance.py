@@ -7,7 +7,7 @@ import pytest_asyncio
 
 from copytrader.performance import recompute_for_wallet, reset_throttle_cache
 from database import init_db
-from models import LeaderTrade, PaperOrder, PaperPosition, TrackedTrader
+from models import LeaderTrade, PaperPosition, TrackedTrader
 
 
 @pytest_asyncio.fixture
