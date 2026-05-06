@@ -1,0 +1,111 @@
+{% extends "_base.html" %}
+{% block title %}{{ trader.wallet[:14] }}…{% endblock %}
+{% block body %}
+<h1>
+  Trader <code>{{ trader.wallet }}</code>
+  <span class="pill {{ trader.status }}">{{ trader.status }}</span>
+</h1>
+<p class="updated">Performance refreshed at {{ perf.last_updated.isoformat() if perf.last_updated else "" }} (mode={{ perf.mode }}).</p>
+
+<h2>Stats</h2>
+<table>
+  <tr><th>Score</th>            <td>{{ "%.0f"|format(trader.score) }} / 100</td></tr>
+  <tr><th>Sample size</th>      <td>{{ trader.sample_size }} trades on leaderboard</td></tr>
+  <tr><th>Weeks profitable</th> <td>{{ "%.0f"|format(trader.weeks_profitable_frac * 100) }}%</td></tr>
+  <tr><th>Volume</th>           <td>${{ "%.0f"|format(trader.total_volume_usdc) }}</td></tr>
+  <tr><th>Notes</th>            <td>{{ trader.notes }}</td></tr>
+  <tr><th>Trades observed</th>  <td>{{ perf.trades_observed }}</td></tr>
+  <tr><th>Trades copied</th>    <td>{{ perf.trades_copied }}</td></tr>
+  <tr><th>Copy hit rate</th>    <td>{{ "%.1f"|format(perf.copy_hit_rate * 100) }}%</td></tr>
+  <tr><th>Audit miss rate</th>  <td class="{{ 'alert' if perf.audit_miss_rate >= 0.1 else '' }}">
+                                  {{ "%.1f"|format(perf.audit_miss_rate * 100) }}%</td></tr>
+  <tr><th>Realized PnL</th>     <td class="{{ 'pos' if perf.realized_pnl > 0 else ('neg' if perf.realized_pnl < 0 else '') }}">
+                                  ${{ "%+.2f"|format(perf.realized_pnl) }}</td></tr>
+  <tr><th>Unrealized PnL</th>   <td class="{{ 'pos' if perf.unrealized_pnl > 0 else ('neg' if perf.unrealized_pnl < 0 else '') }}">
+                                  ${{ "%+.2f"|format(perf.unrealized_pnl) }}</td></tr>
+  {% if backtest %}
+  <tr><th>Backtest realized</th><td>${{ "%+.2f"|format(backtest.realized_pnl) }}
+                                    ({{ backtest.trades_copied }} trades)</td></tr>
+  {% endif %}
+</table>
+
+<h2>Controls</h2>
+<form class="inline" method="post" action="/profiles/{{ trader.wallet }}/preset">
+  <label>Preset:
+    <select name="preset">
+      {% for p in presets %}
+      <option value="{{ p }}" {% if p == trader.preset %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Save preset</button>
+</form>
+&nbsp;
+<form class="inline" method="post" action="/profiles/{{ trader.wallet }}/promote">
+  <button type="submit" {% if not promotable %}disabled title="{{ promote_reason }}"{% endif %}>
+    Promote → {{ next_status }}
+  </button>
+</form>
+&nbsp;
+<form class="inline" method="post" action="/profiles/{{ trader.wallet }}/disable">
+  <button type="submit">Disable</button>
+</form>
+{% if not promotable and trader.status != 'disabled' %}
+  <p class="muted">Promotion blocked: {{ promote_reason }}</p>
+{% endif %}
+
+<h2>Recent leader trades and copies</h2>
+<table>
+  <thead>
+    <tr>
+      <th>When</th><th>Side</th><th>Outcome</th><th>Leader $</th><th>Leader px</th>
+      <th>Copy mode</th><th>Copy order</th><th>Skip / status</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for lt in leader_trades %}
+    {% set order = order_by_tx.get(lt.tx_hash) %}
+    <tr>
+      <td>{{ lt.observed_at.isoformat() }}</td>
+      <td>{{ lt.side }}</td>
+      <td>{{ lt.outcome }}</td>
+      <td>${{ "%.2f"|format(lt.size_usdc) }}</td>
+      <td>{{ "%.4f"|format(lt.price) }}</td>
+      <td>{{ lt.copy_mode or "-" }}</td>
+      <td>
+        {% if order %}
+          <code>{{ order.id[:14] }}…</code>
+          ({{ order.side }} ${{ "%.2f"|format(order.size_usdc) }} @ {{ "%.4f"|format(order.price) }})
+        {% elif lt.copy_order_id %}
+          <code>{{ lt.copy_order_id[:14] }}…</code>
+        {% else %}
+          —
+        {% endif %}
+      </td>
+      <td class="{% if lt.skip_reason %}skip{% endif %}">
+        {% if lt.skip_reason %}skip: {{ lt.skip_reason }}
+        {% elif lt.copy_order_id %}OK
+        {% elif lt.expected_copy %}<span class="alert">missed</span>
+        {% else %}no copy expected{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if alerts %}
+<h2>Audit alerts</h2>
+<table>
+  <thead><tr><th>When</th><th>tx</th><th>Reason</th></tr></thead>
+  <tbody>
+    {% for a in alerts %}
+    <tr>
+      <td>{{ a.created_at }}</td>
+      <td><code>{{ a.leader_tx_hash[:18] }}…</code></td>
+      <td class="alert">{{ a.reason }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

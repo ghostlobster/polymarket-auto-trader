@@ -1,3 +1,4 @@
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,5 +25,33 @@ class Settings(BaseSettings):
     dry_run: bool = False
     db_path: str = "trading.db"
     log_level: str = "INFO"
+
+    # --- Copy-trading subsystem ---
+    copy_enabled: bool = False
+    copy_default_preset: str = "scaled_market"
+    copy_poll_seconds: int = 30
+    copy_audit_interval_secs: int = 60
+    copy_audit_window_secs: int = 120
+    copy_min_confirmed_paper_trades: int = 20
+    copy_audit_miss_rate_demote: float = 0.10
+    copy_report_refresh_throttle_secs: int = 30
+    copy_paper_starting_usdc: float = 1000.0
+
+    # Discovery
+    leaderboard_refresh_hours: int = 24
+    leader_min_trades: int = 50
+    leader_min_weeks_profit_frac: float = 0.6
+    leader_min_wallet_volume: float = 20000.0
+    leader_max_resolution_sniper_frac: float = 0.8
+    leaderboard_top_n_for_llm: int = 30
+    leaderboard_keep_n: int = 10
+
+    # Web UI
+    copy_web_enabled: bool = False
+    copy_web_host: str = "127.0.0.1"
+    copy_web_port: int = 8765
+
+    # Polymarket data API (separate from CLOB)
+    polymarket_data_api: str = "https://data-api.polymarket.com"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")

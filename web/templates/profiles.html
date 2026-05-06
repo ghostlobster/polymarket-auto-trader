@@ -1,0 +1,56 @@
+{% extends "_base.html" %}
+{% block title %}Tracked Traders{% endblock %}
+{% block body %}
+<h1>Tracked traders</h1>
+<p class="muted">
+  Each row's performance is recomputed on page load (throttled to once per 30s).
+  Click a wallet to inspect their copy history. Promotion to <code>live</code>
+  is gated on positive paper PnL and a low audit miss rate.
+</p>
+
+{% if not rows %}
+  <p class="muted">No traders tracked yet — discovery hasn't completed its first cycle.</p>
+{% else %}
+<table>
+  <thead>
+    <tr>
+      <th>Wallet</th>
+      <th>Status</th>
+      <th>Preset</th>
+      <th>Score</th>
+      <th>Sample</th>
+      <th>Observed</th>
+      <th>Copied</th>
+      <th>Hit %</th>
+      <th>Audit miss %</th>
+      <th>Realized PnL</th>
+      <th>Unrealized PnL</th>
+      <th>Updated</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    {% set t = row.trader %}{% set p = row.perf %}
+    <tr>
+      <td><a href="/profiles/{{ t.wallet }}"><code>{{ t.wallet[:14] }}…</code></a></td>
+      <td><span class="pill {{ t.status }}">{{ t.status }}</span></td>
+      <td>{{ t.preset }}</td>
+      <td>{{ "%.0f"|format(t.score) }}</td>
+      <td>{{ t.sample_size }}</td>
+      <td>{{ p.trades_observed }}</td>
+      <td>{{ p.trades_copied }}</td>
+      <td>{{ "%.0f"|format(p.copy_hit_rate * 100) }}</td>
+      <td>{{ "%.1f"|format(p.audit_miss_rate * 100) }}</td>
+      <td class="{{ 'pos' if p.realized_pnl > 0 else ('neg' if p.realized_pnl < 0 else '') }}">
+        {{ "%+.2f"|format(p.realized_pnl) }}
+      </td>
+      <td class="{{ 'pos' if p.unrealized_pnl > 0 else ('neg' if p.unrealized_pnl < 0 else '') }}">
+        {{ "%+.2f"|format(p.unrealized_pnl) }}
+      </td>
+      <td class="updated">{{ p.last_updated.isoformat() if p.last_updated else "" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

@@ -11,6 +11,10 @@ def __getattr__(name):
         "OrderExecutorAgent": ".order_executor",
         "PortfolioMonitorAgent": ".portfolio_monitor",
         "OrchestratorAgent": ".orchestrator",
+        "TraderDiscoveryAgent": ".trader_discovery",
+        "CopyTraderAgent": ".copy_trader",
+        "CopyExecutor": ".copy_executor",
+        "CopyAuditAgent": ".copy_audit",
     }
     if name in _map:
         import importlib
@@ -28,4 +32,8 @@ __all__ = [
     "OrderExecutorAgent",
     "PortfolioMonitorAgent",
     "OrchestratorAgent",
+    "TraderDiscoveryAgent",
+    "CopyTraderAgent",
+    "CopyExecutor",
+    "CopyAuditAgent",
 ]

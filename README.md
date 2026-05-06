@@ -97,6 +97,35 @@ sqlite3 trading.db "SELECT snapshot_at, realized_pnl, unrealized_pnl FROM pnl_sn
 sqlite3 trading.db "SELECT question, side, avg_price, current_price, unrealized_pnl FROM positions WHERE closed_at IS NULL;"
 ```
 
+## Copy-trading subsystem (parallel mode)
+
+The thesis pipeline above runs every 15 minutes. A separate, time-sensitive
+copy-trading subsystem can run in parallel: it discovers consistent
+top-performing Polymarket wallets, polls their trades on a tight cadence,
+and copies them through one of five strategy presets (`mirror`, `scaled_market`,
+`scaled_limit`, `conservative`, `shadow`).
+
+Lifecycle: `discovered → shadow → paper → live`. Promotion to `live` is gated
+on confirmed paper-mode profit and a low audit-miss rate; never automatic.
+
+Enable:
+
+```bash
+COPY_ENABLED=true COPY_WEB_ENABLED=true python main.py
+# Then visit http://127.0.0.1:8765/profiles
+```
+
+The web UI lists every tracked trader with PnL, hit rate, and audit alerts.
+Reports refresh on every page load (throttled to 30s) so you don't need a cron.
+
+Backtest a single wallet against historical data:
+
+```bash
+python -m copytrader.evaluate --wallet 0x... --since 30d --capital 1000 --preset scaled_market
+```
+
+See `.env.example` for all `COPY_*` knobs.
+
 ## Risk Warning
 
 Prediction market trading involves real financial risk. Start with `DRY_RUN=true` and small position sizes. Past performance does not guarantee future results.

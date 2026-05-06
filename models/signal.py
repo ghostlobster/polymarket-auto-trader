@@ -27,6 +27,11 @@ class Signal(BaseModel):
     confidence: float                   # 0-1
     research_summary: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # Provenance — 'thesis' for the original research pipeline,
+    # 'copy' for signals produced by following another trader.
+    source: str = "thesis"
+    leader_wallet: str = ""             # populated when source == 'copy'
+    preset: str = ""                    # strategy preset name, when source == 'copy'
 
     @field_validator("estimated_probability", "market_price", "confidence")
     @classmethod
