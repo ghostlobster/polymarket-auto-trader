@@ -3,6 +3,12 @@ FastAPI app exposing per-profile review pages.
 
 Endpoints:
   GET  /                          → redirect to /profiles
+  GET  /login                     → OAuth login page
+  GET  /auth/google               → begin Google OAuth flow
+  GET  /auth/google/callback      → Google OAuth callback
+  GET  /auth/github               → begin GitHub OAuth flow
+  GET  /auth/github/callback      → GitHub OAuth callback
+  GET  /logout                    → clear session and redirect to /login
   GET  /profiles                  → list of tracked traders (refreshes rollups)
   GET  /profiles/{wallet}         → detailed view (refreshes rollups)
   POST /profiles/{wallet}/promote → status one step forward, with gating
@@ -12,21 +18,21 @@ Endpoints:
 The on-access refresh is what the user asked for: every page load triggers a
 recompute of `copy_performance` (subject to the 30s throttle in
 `copytrader.performance`), so the report is always live without a separate cron.
-
-No authentication — bind to 127.0.0.1 only (see config.copy_web_host).
 """
 from pathlib import Path
 
 import structlog
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
 from config import Settings
 from copytrader.performance import recompute_for_wallet
 from copytrader.strategies import PRESETS
 from database import Database
 from models import TRADER_STATUSES
+from web.auth import NeedsLogin, configure_oauth, make_auth_router, require_auth
 
 log = structlog.get_logger(__name__)
 
@@ -68,12 +74,35 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
     app = FastAPI(title="Polymarket Copy-Trader Profiles")
     templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
+    # Store db on app state so require_auth can reach it without circular imports
+    app.state.db = db
+
+    # Session middleware must be added before any route that uses request.session
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.oauth_session_secret or "dev-secret-change-me",
+        same_site="lax",
+        https_only=False,
+    )
+
+    # Register OAuth routes (/login, /auth/google, /auth/github, /logout)
+    oauth = configure_oauth(settings)
+    app.include_router(make_auth_router(db, settings, oauth))
+
+    # Redirect NeedsLogin exceptions to the login page
+    @app.exception_handler(NeedsLogin)
+    async def _needs_login_handler(request: Request, exc: NeedsLogin):
+        return RedirectResponse(exc.url, status_code=303)
+
     @app.get("/", include_in_schema=False)
     async def root():
         return RedirectResponse(url="/profiles")
 
     @app.get("/profiles", response_class=HTMLResponse)
-    async def list_profiles(request: Request):
+    async def list_profiles(
+        request: Request,
+        current_user: dict = Depends(require_auth),
+    ):
         traders = await db.get_tracked_traders()
         rows = []
         for t in traders:
@@ -91,11 +120,16 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
                 "rows": rows,
                 "presets": list(PRESETS.keys()),
                 "statuses": list(TRADER_STATUSES),
+                "current_user": current_user,
             },
         )
 
     @app.get("/profiles/{wallet}", response_class=HTMLResponse)
-    async def profile_detail(wallet: str, request: Request):
+    async def profile_detail(
+        wallet: str,
+        request: Request,
+        current_user: dict = Depends(require_auth),
+    ):
         wallet = wallet.lower()
         trader = await db.get_tracked_trader(wallet)
         if trader is None:
@@ -106,7 +140,6 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
             throttle_secs=settings.copy_report_refresh_throttle_secs,
             mark_to_market=mark_to_market,
         )
-        # Also pull the backtest row if present, so users can compare modes.
         backtest = await db.get_copy_performance(wallet, "backtest")
         leader_trades = await db.get_leader_trades(wallet, limit=50)
         paper_orders = await db.get_paper_orders(wallet=wallet, limit=50)
@@ -128,11 +161,15 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
                 "promotable": promotable,
                 "promote_reason": reason,
                 "next_status": next_status,
+                "current_user": current_user,
             },
         )
 
     @app.post("/profiles/{wallet}/promote")
-    async def promote(wallet: str):
+    async def promote(
+        wallet: str,
+        current_user: dict = Depends(require_auth),
+    ):
         wallet = wallet.lower()
         trader = await db.get_tracked_trader(wallet)
         if trader is None:
@@ -151,7 +188,11 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
         return RedirectResponse(url=f"/profiles/{wallet}", status_code=303)
 
     @app.post("/profiles/{wallet}/preset")
-    async def set_preset(wallet: str, request: Request):
+    async def set_preset(
+        wallet: str,
+        request: Request,
+        current_user: dict = Depends(require_auth),
+    ):
         wallet = wallet.lower()
         form = await request.form()
         preset = (form.get("preset") or "").strip()
@@ -161,7 +202,10 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
         return RedirectResponse(url=f"/profiles/{wallet}", status_code=303)
 
     @app.post("/profiles/{wallet}/disable")
-    async def disable(wallet: str):
+    async def disable(
+        wallet: str,
+        current_user: dict = Depends(require_auth),
+    ):
         wallet = wallet.lower()
         await db.set_trader_status(wallet, "disabled")
         return RedirectResponse(url=f"/profiles/{wallet}", status_code=303)

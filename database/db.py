@@ -411,6 +411,42 @@ class Database:
             rows = await cur.fetchall()
         return [dict(r) for r in rows]
 
+    # --- Web UI users ---
+
+    async def upsert_web_user(
+        self,
+        provider: str,
+        provider_id: str,
+        email: str | None,
+        name: str | None,
+        avatar_url: str | None,
+        is_allowed: int,
+    ) -> tuple[int, int]:
+        now = datetime.utcnow().isoformat()
+        async with self._conn.execute(
+            """INSERT INTO web_users
+                 (provider, provider_id, email, name, avatar_url, is_allowed, created_at, last_login)
+               VALUES (?,?,?,?,?,?,?,?)
+               ON CONFLICT(provider, provider_id) DO UPDATE SET
+                 email=excluded.email,
+                 name=excluded.name,
+                 avatar_url=excluded.avatar_url,
+                 last_login=excluded.last_login,
+                 is_allowed=MAX(is_allowed, excluded.is_allowed)
+               RETURNING id, is_allowed""",
+            (provider, provider_id, email, name, avatar_url, is_allowed, now, now),
+        ) as cur:
+            row = await cur.fetchone()
+        await self._conn.commit()
+        return row[0], row[1]
+
+    async def get_web_user_by_id(self, user_id: int) -> dict | None:
+        async with self._conn.execute(
+            "SELECT * FROM web_users WHERE id=?", (user_id,)
+        ) as cur:
+            row = await cur.fetchone()
+        return dict(row) if row else None
+
 
 async def init_db(db_path: str) -> Database:
     db = Database(db_path)
