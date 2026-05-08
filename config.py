@@ -51,6 +51,15 @@ class Settings(BaseSettings):
     copy_web_host: str = "127.0.0.1"
     copy_web_port: int = 8765
 
+    # OAuth (web UI login)
+    oauth_session_secret: str = ""
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    oauth_allowed_emails: str = ""
+    oauth_base_url: str = "http://127.0.0.1:8765"
+
     # Polymarket data API (separate from CLOB)
     polymarket_data_api: str = "https://data-api.polymarket.com"
 

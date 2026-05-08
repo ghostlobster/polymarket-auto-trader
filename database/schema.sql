@@ -184,3 +184,19 @@ CREATE TABLE IF NOT EXISTS audit_alerts (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_audit_alerts_wallet ON audit_alerts(wallet, created_at);
+
+-- ----- Web UI auth -----
+
+CREATE TABLE IF NOT EXISTS web_users (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider    TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    email       TEXT,
+    name        TEXT,
+    avatar_url  TEXT,
+    is_allowed  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL,
+    last_login  TEXT NOT NULL,
+    UNIQUE (provider, provider_id)
+);
+CREATE INDEX IF NOT EXISTS idx_web_users_email ON web_users(email);
