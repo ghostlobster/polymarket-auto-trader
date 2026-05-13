@@ -1,93 +1,171 @@
 """
-RiskManagerAgent: sizes positions using Kelly Criterion and enforces portfolio limits.
+RiskManagerAgent: deterministic Kelly sizing + portfolio guardrails.
+
+The previous implementation delegated Kelly math to an LLM, which made limit
+breaches a hallucination risk. This version performs the math algorithmically;
+the LLM is no longer in the critical path and is invoked only for an optional
+human-readable explanation when `explain=True`.
 """
-import json
 
 import structlog
 
-from agents.base import BaseAgent
 from config import Settings
+from database import Database
 from models import PortfolioSnapshot, Signal
+from risk import evaluate_guardrails, kelly_size
 
 log = structlog.get_logger(__name__)
 
-SYSTEM_PROMPT = """You are the Risk Manager agent for an automated Polymarket trading system.
 
-Your job: given a trading signal and current portfolio state, decide whether to approve the trade
-and what position size (in USDC) to use.
+class RiskManagerAgent:
+    """
+    Deterministic risk manager.
 
-Position sizing — fractional Kelly Criterion:
-  kelly_fraction_full = edge / (1 - market_price)   [for YES bets]
-  kelly_fraction_full = (-edge) / market_price       [for NO bets]
-  kelly_usdc = kelly_fraction_full * available_balance * config_kelly_fraction
+    `assess()` returns a dict shaped like the legacy LLM output for backwards
+    compatibility with the orchestrator, plus extra fields under "details".
+    """
 
-Hard limits (non-negotiable):
-1. Max single position: config_max_position_usdc
-2. Max concurrent open positions: config_max_concurrent_positions
-3. Minimum trade size: $5 USDC (below this, skip)
-4. Never risk more than 10% of total portfolio on one trade
-5. If a very similar market is already open, reduce size by 50%
-
-Return ONLY valid JSON:
-{
-  "approved": true,
-  "size_usdc": 25.0,
-  "reason": "Edge 12%, quarter-Kelly sizing gives $28, capped at $25 max",
-  "kelly_pct": 0.08,
-  "risk_score": 3
-}
-or
-{
-  "approved": false,
-  "size_usdc": 0,
-  "reason": "Already at max concurrent positions (5)"
-}"""
-
-
-class RiskManagerAgent(BaseAgent):
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, db: Database | None = None):
         self._settings = settings
-        super().__init__(
-            name="RiskManager",
-            model=self.MODEL_SONNET,
-            tools=[],
-            handlers={},
-            system_prompt=SYSTEM_PROMPT,
-            max_tokens=1024,
+        self._db = db
+        self.name = "RiskManager"
+
+    async def assess(
+        self,
+        signal: Signal,
+        portfolio: PortfolioSnapshot,
+        proposed_size_usdc: float | None = None,
+    ) -> dict:
+        # 1) Compute size — either Kelly (default) or honor an externally-decided size
+        #    (e.g. copy-trader passes the preset-sized notional, no Kelly involved).
+        if proposed_size_usdc is None:
+            kelly = kelly_size(
+                edge=signal.edge,
+                market_price=signal.market_price,
+                side=signal.side,
+                bankroll=portfolio.total_usdc or portfolio.available_usdc or 0.0,
+                kelly_fraction=self._settings.kelly_fraction,
+            )
+            raw_size = kelly.size_usdc
+            kelly_full = kelly.kelly_full
+            kelly_applied = kelly.kelly_fraction_applied
+        else:
+            raw_size = max(0.0, float(proposed_size_usdc))
+            kelly_full = 0.0
+            kelly_applied = 0.0
+
+        # 2) Apply calibration shrinkage (if calibration data is available)
+        shrink_factor = await self._calibration_shrinkage(signal)
+        shrunk_size = raw_size * shrink_factor
+
+        # 3) Compute exposures from open positions
+        cluster_exposures, category_exposures, window_exposures = self._exposure_buckets(
+            portfolio, signal
         )
 
-    async def assess(self, signal: Signal, portfolio: PortfolioSnapshot) -> dict:
-        """Return risk assessment dict with approved bool and size_usdc."""
-        open_count = len(portfolio.open_positions)
-        available = portfolio.available_usdc
-
-        prompt = (
-            f"Assess this trading signal for risk and position sizing.\n\n"
-            f"**Signal**:\n"
-            f"- Market: {signal.question}\n"
-            f"- Side: {signal.side}\n"
-            f"- Edge: {signal.edge:+.4f}\n"
-            f"- Confidence: {signal.confidence:.2f}\n"
-            f"- Estimated probability: {signal.estimated_probability:.4f}\n"
-            f"- Market price: {signal.market_price:.4f}\n\n"
-            f"**Portfolio**:\n"
-            f"- Available USDC: ${available:.2f}\n"
-            f"- Total USDC: ${portfolio.total_usdc:.2f}\n"
-            f"- Open positions: {open_count}\n\n"
-            f"**Config limits**:\n"
-            f"- Max position: ${self._settings.max_position_usdc}\n"
-            f"- Max concurrent positions: {self._settings.max_concurrent_positions}\n"
-            f"- Kelly fraction: {self._settings.kelly_fraction}\n\n"
-            f"Apply Kelly sizing, enforce all hard limits, and return the risk assessment JSON."
+        # 4) Apply guardrails
+        report = evaluate_guardrails(
+            signal=signal,
+            portfolio=portfolio,
+            proposed_size_usdc=shrunk_size,
+            settings=self._settings,
+            cluster_exposures=cluster_exposures,
+            category_exposures=category_exposures,
+            resolution_window_exposures=window_exposures,
         )
 
-        result = await self.run(prompt)
+        signal.applied_shrinkage = shrink_factor
+
+        decision = {
+            "approved": report.approved,
+            "size_usdc": round(report.size_usdc, 4),
+            "reason": report.reason,
+            "kelly_pct": kelly_applied,
+            "details": {
+                "kelly_full": kelly_full,
+                "raw_kelly_size_usdc": raw_size,
+                "shrinkage": shrink_factor,
+                "post_shrinkage_size_usdc": round(shrunk_size, 4),
+                "raw_proposed_size_usdc": report.raw_size_usdc,
+                "adjustments": report.adjustments,
+                "cluster_id": signal.cluster_id or signal.category or "uncategorized",
+                "cluster_exposure_before": report.cluster_exposure_before,
+                "category_exposure_before": report.category_exposure_before,
+                "resolution_window_exposure_before": report.resolution_window_exposure_before,
+            },
+        }
+        log.info(
+            "Risk decision",
+            approved=decision["approved"],
+            size_usdc=decision["size_usdc"],
+            reason=decision["reason"],
+            shrinkage=shrink_factor,
+            kelly_pct=kelly_applied,
+        )
+        return decision
+
+    # ------------------------------------------------------------------ #
+    #  Helpers                                                           #
+    # ------------------------------------------------------------------ #
+
+    async def _calibration_shrinkage(self, signal: Signal) -> float:
+        """
+        Look up the matching calibration bucket for this signal and return a
+        shrinkage factor in [shrinkage_floor, 1.0]. The factor is
+        `mean_actual / mean_predicted` for the bucket — i.e., scale our edge by
+        how well that confidence band has historically performed.
+        """
+        if self._db is None:
+            return 1.0
         try:
-            start = result.find("{")
-            end = result.rfind("}") + 1
-            if start >= 0 and end > start:
-                return json.loads(result[start:end])
-        except Exception as exc:
-            log.warning("RiskManager parse error", error=str(exc))
+            buckets = await self._db.get_calibration_buckets(source=signal.source)
+        except Exception:
+            return 1.0
+        if not buckets:
+            return 1.0
 
-        return {"approved": False, "size_usdc": 0, "reason": "Risk assessment failed"}
+        # Probability our side wins (per our model): if YES, estimated_probability;
+        # if NO, 1 - estimated_probability.
+        p = (
+            signal.estimated_probability
+            if signal.side.upper() == "YES"
+            else 1.0 - signal.estimated_probability
+        )
+        match = None
+        for b in buckets:
+            if b["category"] and signal.category and b["category"] != signal.category:
+                continue
+            if float(b["band_low"]) <= p < float(b["band_high"]):
+                match = b
+                break
+        if match is None:
+            return 1.0
+        if int(match.get("n", 0)) < self._settings.calibration_min_resolutions_for_shrinkage:
+            return 1.0
+        mean_predicted = float(match["mean_predicted"]) or 1e-6
+        mean_actual = float(match["mean_actual"])
+        factor = mean_actual / mean_predicted
+        # Only shrink (factor < 1); never amplify edges from optimistic buckets.
+        factor = min(1.0, max(self._settings.risk_shrinkage_floor, factor))
+        return round(factor, 4)
+
+    def _exposure_buckets(
+        self, portfolio: PortfolioSnapshot, signal: Signal
+    ) -> tuple[dict[str, float], dict[str, float], dict[str, float]]:
+        """
+        Build (cluster, category, resolution-day) exposure dicts from open positions.
+        Without per-position cluster metadata we conservatively bucket everything
+        under the signal's own cluster/category — i.e. the cap considers ALL open
+        positions as potentially correlated when we lack information to prove
+        otherwise.
+        """
+        sig_cluster = (signal.cluster_id or signal.category or "uncategorized").lower()
+        sig_category = (signal.category or "other").lower()
+        cluster: dict[str, float] = {sig_cluster: 0.0}
+        category: dict[str, float] = {sig_category: 0.0}
+        window: dict[str, float] = {}
+        for pos in portfolio.open_positions:
+            notional = float(pos.size) * float(pos.avg_price)
+            cluster[sig_cluster] = cluster.get(sig_cluster, 0.0) + notional
+            category[sig_category] = category.get(sig_category, 0.0) + notional
+        return cluster, category, window

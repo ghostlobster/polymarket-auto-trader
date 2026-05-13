@@ -1,6 +1,7 @@
 """
 Web search and fetch tools for the Research Analyst agent.
 """
+
 import json
 
 import httpx
@@ -18,7 +19,11 @@ def build_web_tools() -> tuple[list[dict], dict]:
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search query"},
-                    "max_results": {"type": "integer", "description": "Max results to return (default 8)", "default": 8},
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Max results to return (default 8)",
+                        "default": 8,
+                    },
                 },
                 "required": ["query"],
             },
@@ -43,11 +48,13 @@ def build_web_tools() -> tuple[list[dict], dict]:
             results = []
             with DDGS() as ddgs:
                 for r in ddgs.text(query, max_results=max_results):
-                    results.append({
-                        "title": r.get("title", ""),
-                        "url": r.get("href", ""),
-                        "snippet": r.get("body", ""),
-                    })
+                    results.append(
+                        {
+                            "title": r.get("title", ""),
+                            "url": r.get("href", ""),
+                            "snippet": r.get("body", ""),
+                        }
+                    )
             return json.dumps(results)
         except Exception as exc:
             return json.dumps({"error": str(exc)})

@@ -12,6 +12,7 @@ order-book replay is available via the public data API). The result is
 written to `copy_performance` with mode='backtest' so it shows up alongside
 live/paper rows in the web UI.
 """
+
 import argparse
 import asyncio
 import re
@@ -54,7 +55,7 @@ async def evaluate(wallet: str, since: str, capital: float, preset_name: str) ->
     log.info("Replaying events", wallet=wallet, count=len(events), preset=preset.name)
 
     available = capital
-    open_pos: dict[str, PaperPosition] = {}    # token_id -> PaperPosition
+    open_pos: dict[str, PaperPosition] = {}  # token_id -> PaperPosition
     realized = 0.0
 
     for ev in events:
@@ -126,7 +127,9 @@ async def evaluate(wallet: str, since: str, capital: float, preset_name: str) ->
                 )
             else:
                 new_size = existing.size + shares
-                existing.avg_price = (existing.avg_price * existing.size + price * shares) / new_size
+                existing.avg_price = (
+                    existing.avg_price * existing.size + price * shares
+                ) / new_size
                 existing.size = new_size
                 existing.current_price = price
             open_pos[ev["token_id"]] = existing
@@ -149,15 +152,16 @@ async def evaluate(wallet: str, since: str, capital: float, preset_name: str) ->
             await db.save_paper_position(existing)
 
     # Mark remaining open positions to last leader price (already done above).
-    unrealized = sum(
-        (p.current_price - p.avg_price) * p.size for p in open_pos.values()
-    )
+    unrealized = sum((p.current_price - p.avg_price) * p.size for p in open_pos.values())
 
     from copytrader.performance import recompute_for_wallet
+
     perf = await recompute_for_wallet(db, wallet, mode="backtest", force=True)
 
     print()
-    print(f"=== Backtest: {wallet}  preset={preset.name}  since={since}  capital=${capital:.2f} ===")
+    print(
+        f"=== Backtest: {wallet}  preset={preset.name}  since={since}  capital=${capital:.2f} ==="
+    )
     print(f"  events observed       : {perf.trades_observed}")
     print(f"  events copied         : {perf.trades_copied}")
     print(f"  copy hit rate         : {perf.copy_hit_rate:.2%}")
@@ -174,8 +178,11 @@ def main() -> None:
     p.add_argument("--wallet", required=True)
     p.add_argument("--since", default="30d", help="e.g. 30d, 12h, 90m")
     p.add_argument("--capital", type=float, default=1000.0)
-    p.add_argument("--preset", default="scaled_market",
-                   choices=["mirror", "scaled_market", "scaled_limit", "conservative", "shadow"])
+    p.add_argument(
+        "--preset",
+        default="scaled_market",
+        choices=["mirror", "scaled_market", "scaled_limit", "conservative", "shadow"],
+    )
     args = p.parse_args()
     asyncio.run(evaluate(args.wallet, args.since, args.capital, args.preset))
 

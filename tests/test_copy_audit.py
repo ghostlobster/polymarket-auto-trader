@@ -1,4 +1,5 @@
 """CopyAuditAgent tests."""
+
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -27,19 +28,34 @@ async def test_audit_logs_alerts_for_expected_misses(db, tmp_path):
         copy_audit_window_secs=1,
         copy_audit_miss_rate_demote=0.5,
     )
-    await db.upsert_tracked_trader(TrackedTrader(
-        wallet="0xL", status="paper", preset="scaled_market",
-        score=70.0, sample_size=10,
-    ))
+    await db.upsert_tracked_trader(
+        TrackedTrader(
+            wallet="0xL",
+            status="paper",
+            preset="scaled_market",
+            score=70.0,
+            sample_size=10,
+        )
+    )
     old = datetime.now(timezone.utc) - timedelta(seconds=10)
     # Five expected_copy with no order — a clear miss pattern
     for i in range(5):
-        await db.record_leader_trade(LeaderTrade(
-            wallet="0xL", tx_hash=f"tx{i}", condition_id="c", token_id="t",
-            side="BUY", outcome="YES", size_usdc=10, price=0.5,
-            observed_at=old, expected_copy=True, copy_order_id="",
-            copy_mode="paper",
-        ))
+        await db.record_leader_trade(
+            LeaderTrade(
+                wallet="0xL",
+                tx_hash=f"tx{i}",
+                condition_id="c",
+                token_id="t",
+                side="BUY",
+                outcome="YES",
+                size_usdc=10,
+                price=0.5,
+                observed_at=old,
+                expected_copy=True,
+                copy_order_id="",
+                copy_mode="paper",
+            )
+        )
 
     audit = CopyAuditAgent(settings, db)
     summary = await audit.cycle()
@@ -54,19 +70,35 @@ async def test_audit_logs_alerts_for_expected_misses(db, tmp_path):
 @pytest.mark.asyncio
 async def test_audit_no_alerts_when_all_copied(db, tmp_path):
     settings = Settings(
-        anthropic_api_key="x", db_path=str(tmp_path / "x.db"),
-        copy_audit_window_secs=1, copy_audit_miss_rate_demote=0.5,
+        anthropic_api_key="x",
+        db_path=str(tmp_path / "x.db"),
+        copy_audit_window_secs=1,
+        copy_audit_miss_rate_demote=0.5,
     )
-    await db.upsert_tracked_trader(TrackedTrader(
-        wallet="0xL", status="paper", preset="scaled_market",
-    ))
+    await db.upsert_tracked_trader(
+        TrackedTrader(
+            wallet="0xL",
+            status="paper",
+            preset="scaled_market",
+        )
+    )
     old = datetime.now(timezone.utc) - timedelta(seconds=10)
-    await db.record_leader_trade(LeaderTrade(
-        wallet="0xL", tx_hash="tx1", condition_id="c", token_id="t",
-        side="BUY", outcome="YES", size_usdc=10, price=0.5,
-        observed_at=old, expected_copy=True, copy_order_id="paper-1",
-        copy_mode="paper",
-    ))
+    await db.record_leader_trade(
+        LeaderTrade(
+            wallet="0xL",
+            tx_hash="tx1",
+            condition_id="c",
+            token_id="t",
+            side="BUY",
+            outcome="YES",
+            size_usdc=10,
+            price=0.5,
+            observed_at=old,
+            expected_copy=True,
+            copy_order_id="paper-1",
+            copy_mode="paper",
+        )
+    )
     audit = CopyAuditAgent(settings, db)
     summary = await audit.cycle()
     assert summary["alerts"] == 0

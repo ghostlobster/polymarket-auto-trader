@@ -1,6 +1,7 @@
 """
 Database query tools for agents that need portfolio/history context.
 """
+
 import json
 
 from database import Database
@@ -16,7 +17,11 @@ def build_db_tools(db: Database) -> tuple[list[dict], dict]:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "description": "Number of signals to return", "default": 10},
+                    "limit": {
+                        "type": "integer",
+                        "description": "Number of signals to return",
+                        "default": 10,
+                    },
                 },
             },
         },

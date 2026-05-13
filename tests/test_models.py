@@ -1,4 +1,5 @@
 """Tests for Pydantic data models."""
+
 from datetime import datetime
 
 import pytest
@@ -37,6 +38,7 @@ def test_orderbook_empty():
 
 def test_market_days_to_resolution():
     from datetime import timedelta, timezone
+
     future = (datetime.now(timezone.utc) + timedelta(days=10)).isoformat()
     market = Market(condition_id="x", question="Will X happen?", end_date_iso=future)
     days = market.days_to_resolution
@@ -51,10 +53,10 @@ def test_signal_edge_clamping():
         token_id="t1",
         side="YES",
         strength=SignalStrength.BUY,
-        estimated_probability=1.5,   # should be clamped to 1.0
-        market_price=-0.1,            # should be clamped to 0.0
+        estimated_probability=1.5,  # should be clamped to 1.0
+        market_price=-0.1,  # should be clamped to 0.0
         edge=0.1,
-        confidence=2.0,              # should be clamped to 1.0
+        confidence=2.0,  # should be clamped to 1.0
         rationale="test",
     )
     assert signal.estimated_probability == 1.0
@@ -64,26 +66,42 @@ def test_signal_edge_clamping():
 
 def test_signal_is_actionable():
     sig = Signal(
-        market_id="m1", question="Q?", token_id="t1", side="YES",
+        market_id="m1",
+        question="Q?",
+        token_id="t1",
+        side="YES",
         strength=SignalStrength.BUY,
-        estimated_probability=0.65, market_price=0.50, edge=0.15,
-        confidence=0.75, rationale="strong signal",
+        estimated_probability=0.65,
+        market_price=0.50,
+        edge=0.15,
+        confidence=0.75,
+        rationale="strong signal",
     )
     assert sig.is_actionable is True
 
     weak = Signal(
-        market_id="m1", question="Q?", token_id="t1", side="YES",
+        market_id="m1",
+        question="Q?",
+        token_id="t1",
+        side="YES",
         strength=SignalStrength.HOLD,
-        estimated_probability=0.52, market_price=0.50, edge=0.02,
-        confidence=0.5, rationale="weak",
+        estimated_probability=0.52,
+        market_price=0.50,
+        edge=0.02,
+        confidence=0.5,
+        rationale="weak",
     )
     assert weak.is_actionable is False
 
 
 def test_position_pnl():
     pos = Position(
-        market_id="m1", token_id="t1", side="YES",
-        size=100, avg_price=0.50, current_price=0.65,
+        market_id="m1",
+        token_id="t1",
+        side="YES",
+        size=100,
+        avg_price=0.50,
+        current_price=0.65,
     )
     pos.update_pnl()
     assert pos.unrealized_pnl == pytest.approx(15.0)

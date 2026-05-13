@@ -14,6 +14,7 @@ Pure async — no LLM in the hot path so latency stays low. Per cycle:
 The orchestrator's RiskManagerAgent is reused to enforce portfolio-level
 hard limits (max concurrent, available cash) on live copies.
 """
+
 from datetime import datetime, timezone
 
 import structlog
@@ -133,7 +134,9 @@ class CopyTraderAgent:
         if decision.skip:
             log.info(
                 "Copy skipped",
-                wallet=trader.wallet, tx=ev["tx_hash"][:12], reason=decision.reason,
+                wallet=trader.wallet,
+                tx=ev["tx_hash"][:12],
+                reason=decision.reason,
             )
             return False
 
@@ -145,7 +148,8 @@ class CopyTraderAgent:
             balance = await self._poly.get_balance_usdc()
             open_positions = await self._db.get_open_positions()
             snapshot = PortfolioSnapshot(
-                total_usdc=balance, available_usdc=balance,
+                total_usdc=balance,
+                available_usdc=balance,
                 open_positions=open_positions,
             )
             try:
@@ -155,7 +159,8 @@ class CopyTraderAgent:
                         trader.wallet, ev["tx_hash"], "", trader.status
                     )
                     log.info(
-                        "Live copy rejected by risk", wallet=trader.wallet,
+                        "Live copy rejected by risk",
+                        wallet=trader.wallet,
                         reason=risk.get("reason"),
                     )
                     return False
@@ -174,8 +179,11 @@ class CopyTraderAgent:
         if order_id:
             await self._db.update_leader_trade_copy(trader.wallet, ev["tx_hash"], order_id, mode)
             log.info(
-                "Copy executed", wallet=trader.wallet, mode=mode,
-                size=decision.size_usdc, order=order_id,
+                "Copy executed",
+                wallet=trader.wallet,
+                mode=mode,
+                size=decision.size_usdc,
+                order=order_id,
             )
             return True
 
@@ -183,9 +191,7 @@ class CopyTraderAgent:
         await self._db.update_leader_trade_copy(trader.wallet, ev["tx_hash"], "", mode)
         return False
 
-    def _build_signal(
-        self, trader: TrackedTrader, ev: dict, decision: CopyDecision
-    ) -> Signal:
+    def _build_signal(self, trader: TrackedTrader, ev: dict, decision: CopyDecision) -> Signal:
         outcome = ev.get("outcome", "YES")
         # Edge is unknown for copy signals; we encode the leader's score-derived
         # confidence and the leader's fill price as market_price for traceability.

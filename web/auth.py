@@ -7,6 +7,7 @@ Access control is governed by the OAUTH_ALLOWED_EMAILS setting — only emails
 listed there are approved on first login. Manually approved rows (is_allowed=1
 set directly in the DB) are preserved across re-logins by the MAX() upsert.
 """
+
 from pathlib import Path
 
 from authlib.integrations.starlette_client import OAuth
@@ -19,6 +20,7 @@ _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 class NeedsLogin(Exception):
     """Raised by require_auth; caught by a registered exception handler."""
+
     def __init__(self, url: str = "/login"):
         self.url = url
 
@@ -35,9 +37,7 @@ def configure_oauth(settings) -> OAuth:
             name="google",
             client_id=settings.google_client_id,
             client_secret=settings.google_client_secret,
-            server_metadata_url=(
-                "https://accounts.google.com/.well-known/openid-configuration"
-            ),
+            server_metadata_url=("https://accounts.google.com/.well-known/openid-configuration"),
             client_kwargs={"scope": "openid email profile"},
         )
     if settings.github_client_id:

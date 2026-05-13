@@ -2,6 +2,7 @@
 Tool definitions for Polymarket API interactions.
 Returns Anthropic tool dicts + paired async handler functions.
 """
+
 import json
 
 from polymarket.client import PolymarketClient
@@ -17,7 +18,11 @@ def build_market_tools(poly: PolymarketClient) -> tuple[list[dict], dict]:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "description": "Number of markets to fetch (max 100)", "default": 50},
+                    "limit": {
+                        "type": "integer",
+                        "description": "Number of markets to fetch (max 100)",
+                        "default": 50,
+                    },
                     "offset": {"type": "integer", "description": "Pagination offset", "default": 0},
                 },
             },
@@ -28,7 +33,10 @@ def build_market_tools(poly: PolymarketClient) -> tuple[list[dict], dict]:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "token_id": {"type": "string", "description": "The token ID (yes_token_id or no_token_id from market data)"},
+                    "token_id": {
+                        "type": "string",
+                        "description": "The token ID (yes_token_id or no_token_id from market data)",
+                    },
                 },
                 "required": ["token_id"],
             },
@@ -50,11 +58,24 @@ def build_market_tools(poly: PolymarketClient) -> tuple[list[dict], dict]:
                 "type": "object",
                 "properties": {
                     "token_id": {"type": "string", "description": "Token ID to trade"},
-                    "side": {"type": "string", "enum": ["BUY", "SELL"], "description": "Order side"},
-                    "size_usdc": {"type": "number", "description": "Amount in USDC to spend/receive"},
+                    "side": {
+                        "type": "string",
+                        "enum": ["BUY", "SELL"],
+                        "description": "Order side",
+                    },
+                    "size_usdc": {
+                        "type": "number",
+                        "description": "Amount in USDC to spend/receive",
+                    },
                     "price": {"type": "number", "description": "Limit price between 0.0 and 1.0"},
-                    "market_id": {"type": "string", "description": "Associated market condition_id"},
-                    "signal_id": {"type": "string", "description": "Signal that triggered this order"},
+                    "market_id": {
+                        "type": "string",
+                        "description": "Associated market condition_id",
+                    },
+                    "signal_id": {
+                        "type": "string",
+                        "description": "Signal that triggered this order",
+                    },
                 },
                 "required": ["token_id", "side", "size_usdc", "price"],
             },

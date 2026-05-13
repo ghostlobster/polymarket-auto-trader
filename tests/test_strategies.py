@@ -1,4 +1,5 @@
 """Strategy preset tests — pure logic, no I/O."""
+
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -37,8 +38,11 @@ def test_get_preset_fallback():
 
 def test_scaled_market_default():
     d = apply_preset(
-        preset=PRESETS["scaled_market"], leader_event=_ev(), book=_book(),
-        available_usdc=10_000, max_position_usdc=50.0,
+        preset=PRESETS["scaled_market"],
+        leader_event=_ev(),
+        book=_book(),
+        available_usdc=10_000,
+        max_position_usdc=50.0,
     )
     assert d.skip is False
     assert d.order_type == "market"
@@ -52,7 +56,8 @@ def test_below_min_notional():
         preset=PRESETS["scaled_market"],
         leader_event=_ev(size_usdc=50),  # below default min 200
         book=_book(),
-        available_usdc=10_000, max_position_usdc=50.0,
+        available_usdc=10_000,
+        max_position_usdc=50.0,
     )
     assert d.skip is True
     assert "leader_notional_below_min" in d.reason
@@ -61,8 +66,11 @@ def test_below_min_notional():
 def test_stale_event_skipped():
     old = int((datetime.now(timezone.utc) - timedelta(minutes=10)).timestamp())
     d = apply_preset(
-        preset=PRESETS["scaled_market"], leader_event=_ev(timestamp=old),
-        book=_book(), available_usdc=10_000, max_position_usdc=50.0,
+        preset=PRESETS["scaled_market"],
+        leader_event=_ev(timestamp=old),
+        book=_book(),
+        available_usdc=10_000,
+        max_position_usdc=50.0,
     )
     assert d.skip is True
     assert d.reason.startswith("stale:")
@@ -74,7 +82,8 @@ def test_slippage_skip_marks_expected():
         preset=PRESETS["scaled_market"],
         leader_event=_ev(price=0.50),
         book=_book(best_ask=0.62),  # 0.62 > 0.50 * 1.03
-        available_usdc=10_000, max_position_usdc=50.0,
+        available_usdc=10_000,
+        max_position_usdc=50.0,
     )
     assert d.skip is True
     assert d.reason.startswith("slippage:")
@@ -83,8 +92,11 @@ def test_slippage_skip_marks_expected():
 
 def test_shadow_never_executes():
     d = apply_preset(
-        preset=PRESETS["shadow"], leader_event=_ev(),
-        book=_book(), available_usdc=10_000, max_position_usdc=50.0,
+        preset=PRESETS["shadow"],
+        leader_event=_ev(),
+        book=_book(),
+        available_usdc=10_000,
+        max_position_usdc=50.0,
     )
     assert d.skip is True
     assert d.expected_copy is False
@@ -96,7 +108,8 @@ def test_scaled_limit_uses_leader_price():
         preset=PRESETS["scaled_limit"],
         leader_event=_ev(price=0.42),
         book=_book(best_ask=0.42),
-        available_usdc=10_000, max_position_usdc=50.0,
+        available_usdc=10_000,
+        max_position_usdc=50.0,
     )
     assert d.skip is False
     assert d.order_type == "limit"
@@ -106,8 +119,11 @@ def test_scaled_limit_uses_leader_price():
 def test_conservative_blocks_imminent_resolution():
     resolves = datetime.now(timezone.utc) + timedelta(hours=24)  # < 7d
     d = apply_preset(
-        preset=PRESETS["conservative"], leader_event=_ev(),
-        book=_book(), available_usdc=10_000, max_position_usdc=50.0,
+        preset=PRESETS["conservative"],
+        leader_event=_ev(),
+        book=_book(),
+        available_usdc=10_000,
+        max_position_usdc=50.0,
         market_resolves_at=resolves,
     )
     assert d.skip is True
@@ -116,8 +132,11 @@ def test_conservative_blocks_imminent_resolution():
 
 def test_size_clamped_by_available_usdc():
     d = apply_preset(
-        preset=PRESETS["mirror"], leader_event=_ev(size_usdc=1_000_000),
-        book=_book(), available_usdc=20.0, max_position_usdc=10_000.0,
+        preset=PRESETS["mirror"],
+        leader_event=_ev(size_usdc=1_000_000),
+        book=_book(),
+        available_usdc=20.0,
+        max_position_usdc=10_000.0,
     )
     # mirror scale = 1.0, but available is 20 and the size must be ≥5
     assert d.skip is False

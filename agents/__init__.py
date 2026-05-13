@@ -11,6 +11,7 @@ def __getattr__(name):
         "OrderExecutorAgent": ".order_executor",
         "PortfolioMonitorAgent": ".portfolio_monitor",
         "OrchestratorAgent": ".orchestrator",
+        "CalibrationAuditor": ".calibration_auditor",
         "TraderDiscoveryAgent": ".trader_discovery",
         "CopyTraderAgent": ".copy_trader",
         "CopyExecutor": ".copy_executor",
@@ -18,6 +19,7 @@ def __getattr__(name):
     }
     if name in _map:
         import importlib
+
         module = importlib.import_module(_map[name], package=__name__)
         return getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -32,6 +34,7 @@ __all__ = [
     "OrderExecutorAgent",
     "PortfolioMonitorAgent",
     "OrchestratorAgent",
+    "CalibrationAuditor",
     "TraderDiscoveryAgent",
     "CopyTraderAgent",
     "CopyExecutor",

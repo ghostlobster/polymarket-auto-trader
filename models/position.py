@@ -8,9 +8,9 @@ class Position(BaseModel):
     market_id: str
     question: str = ""
     token_id: str
-    side: str                  # "YES" or "NO"
-    size: float                # number of shares held
-    avg_price: float           # average entry price (0-1)
+    side: str  # "YES" or "NO"
+    size: float  # number of shares held
+    avg_price: float  # average entry price (0-1)
     current_price: float = 0.0
     unrealized_pnl: float = 0.0
     realized_pnl: float = 0.0

@@ -1,0 +1,79 @@
+{% extends "_base.html" %}
+{% block title %}Calibration Audit{% endblock %}
+{% block body %}
+<h1>Calibration Audit</h1>
+<p class="muted">
+  Each row groups resolved signals by source × category × predicted-probability decile.
+  <code>mean_predicted</code> vs <code>mean_actual</code> tells you whether the system is
+  honest — large gaps indicate over- or under-confidence in that band.
+</p>
+
+{% if not buckets %}
+<p>No resolved signals yet. The calibration auditor populates this view once markets
+   in your signal history settle on the CLOB.</p>
+{% else %}
+<table>
+  <thead>
+    <tr>
+      <th>Source</th>
+      <th>Category</th>
+      <th>Band</th>
+      <th>N</th>
+      <th>Mean predicted</th>
+      <th>Mean actual</th>
+      <th>Brier</th>
+      <th>Log loss</th>
+      <th>Calibration gap</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for b in buckets %}
+    {% set gap = (b.mean_actual - b.mean_predicted) %}
+    <tr>
+      <td><code>{{ b.source }}</code></td>
+      <td>{{ b.category }}</td>
+      <td>{{ "%.2f"|format(b.band_low) }} – {{ "%.2f"|format(b.band_high) }}</td>
+      <td>{{ b.n }}</td>
+      <td>{{ "%.3f"|format(b.mean_predicted) }}</td>
+      <td>{{ "%.3f"|format(b.mean_actual) }}</td>
+      <td>{{ "%.4f"|format(b.brier) }}</td>
+      <td>{{ "%.4f"|format(b.log_loss) }}</td>
+      <td class="{% if gap >= 0 %}pos{% else %}neg{% endif %}">
+        {{ "%+.3f"|format(gap) }}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Bias-tag performance</h2>
+{% if not bias_rows %}
+<p class="muted">No resolved signals carry bias tags yet.</p>
+{% else %}
+<table>
+  <thead>
+    <tr>
+      <th>Tag</th>
+      <th>N</th>
+      <th>Hit rate</th>
+      <th>Mean Brier</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in bias_rows %}
+    <tr>
+      <td><code>{{ r.tag }}</code></td>
+      <td>{{ r.n }}</td>
+      <td>{{ "%.1f%%"|format(100 * r.hit_rate) }}</td>
+      <td>{{ "%.4f"|format(r.brier) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<p class="updated">Edge mode: <code>{{ edge_mode }}</code>
+  · Active sources: {% for k, v in active_sources.items() %}{{ k }}={{ "on" if v else "off" }}{% if not loop.last %}, {% endif %}{% endfor %}
+</p>
+{% endblock %}

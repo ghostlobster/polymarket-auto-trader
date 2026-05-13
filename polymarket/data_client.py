@@ -10,6 +10,7 @@ The exact response shapes from data-api.polymarket.com are normalized into
 plain dicts here so the rest of the codebase doesn't depend on the upstream
 schema changing field names.
 """
+
 import asyncio
 from typing import Any
 
@@ -98,14 +99,16 @@ class PolymarketDataClient:
             wallet = r.get("proxyWallet") or r.get("address") or r.get("user") or r.get("wallet")
             if not wallet:
                 continue
-            out.append({
-                "wallet": wallet.lower(),
-                "pnl": float(r.get("pnl", r.get("profit", 0)) or 0),
-                "volume": float(r.get("volume", 0) or 0),
-                "trades": int(r.get("trades", r.get("tradeCount", 0)) or 0),
-                "name": r.get("name") or r.get("displayName") or "",
-                "raw": r,
-            })
+            out.append(
+                {
+                    "wallet": wallet.lower(),
+                    "pnl": float(r.get("pnl", r.get("profit", 0)) or 0),
+                    "volume": float(r.get("volume", 0) or 0),
+                    "trades": int(r.get("trades", r.get("tradeCount", 0)) or 0),
+                    "name": r.get("name") or r.get("displayName") or "",
+                    "raw": r,
+                }
+            )
         return out
 
     # ------------------------------------------------------------------ #
@@ -183,18 +186,20 @@ class PolymarketDataClient:
                 shares = float(r.get("shares", r.get("amount", 0)) or 0)
                 price = float(r.get("price", 0) or 0)
                 size_usdc = shares * price
-            events.append({
-                "tx_hash": tx_hash,
-                "timestamp": ts,
-                "type": ev_type,
-                "side": side,
-                "outcome": outcome,
-                "condition_id": r.get("conditionId") or r.get("market") or "",
-                "token_id": r.get("asset") or r.get("tokenId") or "",
-                "size_usdc": size_usdc,
-                "price": float(r.get("price", 0) or 0),
-                "raw": r,
-            })
+            events.append(
+                {
+                    "tx_hash": tx_hash,
+                    "timestamp": ts,
+                    "type": ev_type,
+                    "side": side,
+                    "outcome": outcome,
+                    "condition_id": r.get("conditionId") or r.get("market") or "",
+                    "token_id": r.get("asset") or r.get("tokenId") or "",
+                    "size_usdc": size_usdc,
+                    "price": float(r.get("price", 0) or 0),
+                    "raw": r,
+                }
+            )
         # Return chronological so the caller can advance the cursor monotonically.
         events.sort(key=lambda e: e["timestamp"])
         return events
@@ -207,9 +212,9 @@ class PolymarketDataClient:
         self, wallets: list[str], after_ts_per_wallet: dict[str, int]
     ) -> dict[str, list[dict]]:
         """Fetch activity for many wallets in parallel."""
+
         async def one(w):
-            return w, await self.get_user_activity(
-                w, after_ts=after_ts_per_wallet.get(w, 0)
-            )
+            return w, await self.get_user_activity(w, after_ts=after_ts_per_wallet.get(w, 0))
+
         results = await asyncio.gather(*(one(w) for w in wallets), return_exceptions=False)
         return dict(results)

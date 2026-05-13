@@ -1,4 +1,5 @@
 """Smoke tests for the web profile UI."""
+
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
@@ -10,9 +11,15 @@ from web.auth import require_auth
 from web.server import build_app
 
 _FAKE_USER = {
-    "id": 1, "provider": "test", "provider_id": "1",
-    "email": "test@example.com", "name": "Test", "avatar_url": None,
-    "is_allowed": 1, "created_at": "2026-01-01", "last_login": "2026-01-01",
+    "id": 1,
+    "provider": "test",
+    "provider_id": "1",
+    "email": "test@example.com",
+    "name": "Test",
+    "avatar_url": None,
+    "is_allowed": 1,
+    "created_at": "2026-01-01",
+    "last_login": "2026-01-01",
 }
 
 
@@ -41,10 +48,15 @@ async def test_root_redirects_to_profiles(db):
 
 @pytest.mark.asyncio
 async def test_profile_list_renders(db):
-    await db.upsert_tracked_trader(TrackedTrader(
-        wallet="0xabc", status="paper", preset="scaled_market",
-        score=80.0, sample_size=50,
-    ))
+    await db.upsert_tracked_trader(
+        TrackedTrader(
+            wallet="0xabc",
+            status="paper",
+            preset="scaled_market",
+            score=80.0,
+            sample_size=50,
+        )
+    )
     with _make_client(db) as c:
         r = c.get("/profiles")
         assert r.status_code == 200
@@ -61,10 +73,15 @@ async def test_profile_detail_404_when_unknown(db):
 
 @pytest.mark.asyncio
 async def test_promote_blocked_when_preconditions_unmet(db):
-    await db.upsert_tracked_trader(TrackedTrader(
-        wallet="0xabc", status="paper", preset="scaled_market",
-        score=80.0, sample_size=50,
-    ))
+    await db.upsert_tracked_trader(
+        TrackedTrader(
+            wallet="0xabc",
+            status="paper",
+            preset="scaled_market",
+            score=80.0,
+            sample_size=50,
+        )
+    )
     with _make_client(db, follow_redirects=False) as c:
         r = c.post("/profiles/0xabc/promote")
         # paper -> live needs ≥20 confirmed trades + positive PnL → blocked
@@ -73,9 +90,13 @@ async def test_promote_blocked_when_preconditions_unmet(db):
 
 @pytest.mark.asyncio
 async def test_promote_discovered_to_shadow_succeeds(db):
-    await db.upsert_tracked_trader(TrackedTrader(
-        wallet="0xabc", status="discovered", preset="scaled_market",
-    ))
+    await db.upsert_tracked_trader(
+        TrackedTrader(
+            wallet="0xabc",
+            status="discovered",
+            preset="scaled_market",
+        )
+    )
     with _make_client(db, follow_redirects=False) as c:
         r = c.post("/profiles/0xabc/promote")
         assert r.status_code == 303
@@ -85,9 +106,13 @@ async def test_promote_discovered_to_shadow_succeeds(db):
 
 @pytest.mark.asyncio
 async def test_set_preset(db):
-    await db.upsert_tracked_trader(TrackedTrader(
-        wallet="0xabc", status="paper", preset="scaled_market",
-    ))
+    await db.upsert_tracked_trader(
+        TrackedTrader(
+            wallet="0xabc",
+            status="paper",
+            preset="scaled_market",
+        )
+    )
     with _make_client(db, follow_redirects=False) as c:
         r = c.post("/profiles/0xabc/preset", data={"preset": "conservative"})
         assert r.status_code == 303
