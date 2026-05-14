@@ -8,6 +8,7 @@ Fills are simulated by walking the live OrderBook returned by the wrapped
 `PolymarketClient`. State is persisted to the `paper_orders` and
 `paper_positions` tables (separate from live `positions` / `orders`).
 """
+
 from datetime import datetime
 from uuid import uuid4
 
@@ -36,7 +37,7 @@ class PaperBroker:
     ):
         self._poly = poly
         self._db = db
-        self._wallet = wallet_label   # leader wallet being followed (used as bucket key)
+        self._wallet = wallet_label  # leader wallet being followed (used as bucket key)
         self._starting_usdc = starting_usdc
 
     # ------------------------------------------------------------------ #
@@ -128,8 +129,11 @@ class PaperBroker:
         leader_tx_hash: str,
         order_type: str,
     ) -> PaperOrder:
-        levels = sorted(book.asks, key=lambda lv: lv.price) if side == OrderSide.BUY \
+        levels = (
+            sorted(book.asks, key=lambda lv: lv.price)
+            if side == OrderSide.BUY
             else sorted(book.bids, key=lambda lv: lv.price, reverse=True)
+        )
 
         remaining_usdc = size_usdc
         filled_shares = 0.0
@@ -221,7 +225,8 @@ class PaperBroker:
         if existing is None:
             log.warning(
                 "Paper sell with no open position — skipped",
-                wallet=self._wallet, token_id=token_id,
+                wallet=self._wallet,
+                token_id=token_id,
             )
             return
 

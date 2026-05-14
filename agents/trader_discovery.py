@@ -12,6 +12,7 @@ Surviving wallets are upserted into `tracked_traders` with status='discovered'
 on first sighting; existing rows have their score/sample_size/etc. refreshed
 without disturbing user-set status or preset.
 """
+
 import json
 from datetime import datetime
 
@@ -80,16 +81,18 @@ def _consistency_filter(
         weeks_frac = positive_windows / max(len(windows), 1)
         if weeks_frac < settings.leader_min_weeks_profit_frac:
             continue
-        survivors.append({
-            "wallet": w,
-            "windows": windows,
-            "weeks_profitable_frac": weeks_frac,
-            "total_volume": ref.get("volume", 0),
-            "trades": ref.get("trades", 0),
-            "pnl_all": (windows.get("all") or {}).get("pnl", 0),
-            "pnl_1m": (windows.get("1m") or {}).get("pnl", 0),
-            "pnl_1w": (windows.get("1w") or {}).get("pnl", 0),
-        })
+        survivors.append(
+            {
+                "wallet": w,
+                "windows": windows,
+                "weeks_profitable_frac": weeks_frac,
+                "total_volume": ref.get("volume", 0),
+                "trades": ref.get("trades", 0),
+                "pnl_all": (windows.get("all") or {}).get("pnl", 0),
+                "pnl_1m": (windows.get("1m") or {}).get("pnl", 0),
+                "pnl_1w": (windows.get("1w") or {}).get("pnl", 0),
+            }
+        )
     survivors.sort(key=lambda r: r["pnl_all"] + r["pnl_1m"], reverse=True)
     return survivors
 
@@ -157,12 +160,12 @@ class TraderDiscoveryAgent(BaseAgent):
                 score=float(r.get("score", 0)),
                 sample_size=cand["trades"],
                 weeks_profitable_frac=cand["weeks_profitable_frac"],
-                max_drawdown=0.0,                          # not exposed by leaderboard payload
+                max_drawdown=0.0,  # not exposed by leaderboard payload
                 total_volume_usdc=cand["total_volume"],
-                resolution_sniper_frac=0.0,                # populated by deeper analysis later
+                resolution_sniper_frac=0.0,  # populated by deeper analysis later
                 last_seen_ts=existing.last_seen_ts if existing else 0,
                 last_evaluated_at=datetime.utcnow(),
-                notes=f"{r.get('verdict','')}: {r.get('reason','')}",
+                notes=f"{r.get('verdict', '')}: {r.get('reason', '')}",
                 created_at=existing.created_at if existing else datetime.utcnow(),
             )
             await self._db.upsert_tracked_trader(tt)

@@ -29,7 +29,7 @@ class Order(BaseModel):
     token_id: str
     side: OrderSide
     size_usdc: float
-    price: float               # 0.0–1.0 (Polymarket uses cents / 100)
+    price: float  # 0.0–1.0 (Polymarket uses cents / 100)
     order_type: OrderType = OrderType.LIMIT
     status: OrderStatus = OrderStatus.PENDING
     placed_at: datetime | None = None

@@ -25,7 +25,22 @@ CREATE TABLE IF NOT EXISTS signals (
     created_at TEXT NOT NULL,
     source TEXT DEFAULT 'thesis',
     leader_wallet TEXT DEFAULT '',
-    preset TEXT DEFAULT ''
+    preset TEXT DEFAULT '',
+    -- Cognitive-arbitrage additions
+    category TEXT DEFAULT '',
+    cluster_id TEXT DEFAULT '',
+    resolves_at TEXT DEFAULT '',
+    prior_p REAL DEFAULT NULL,
+    prior_weight REAL DEFAULT 0,
+    posterior_p REAL DEFAULT NULL,
+    model_disagreement REAL DEFAULT 0,
+    bias_tags_json TEXT DEFAULT '[]',
+    applied_shrinkage REAL DEFAULT 1.0,
+    resolved_outcome TEXT DEFAULT '',
+    resolved_at TEXT DEFAULT '',
+    was_correct INTEGER DEFAULT NULL,
+    realized_brier REAL DEFAULT NULL,
+    realized_log_loss REAL DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -82,9 +97,92 @@ CREATE TABLE IF NOT EXISTS pnl_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_signals_market ON signals(market_id);
 CREATE INDEX IF NOT EXISTS idx_signals_source ON signals(source);
+CREATE INDEX IF NOT EXISTS idx_signals_resolved ON signals(resolved_outcome);
 CREATE INDEX IF NOT EXISTS idx_orders_market ON orders(market_id);
 CREATE INDEX IF NOT EXISTS idx_positions_open ON positions(closed_at);
 CREATE INDEX IF NOT EXISTS idx_messages_processed ON agent_messages(processed, created_at);
+
+-- ----- Cognitive-arbitrage engine -----
+
+CREATE TABLE IF NOT EXISTS market_resolutions (
+    condition_id TEXT PRIMARY KEY,
+    resolved_outcome TEXT NOT NULL,        -- YES|NO|INVALID
+    resolved_at TEXT NOT NULL,
+    payout_token_id TEXT DEFAULT '',
+    source TEXT DEFAULT 'clob'
+);
+
+CREATE TABLE IF NOT EXISTS signal_features (
+    signal_id TEXT PRIMARY KEY,
+    features_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS calibration_buckets (
+    bucket_key TEXT PRIMARY KEY,           -- e.g. "thesis|Politics|0.6-0.7"
+    source TEXT NOT NULL,                  -- thesis|copy|bias:<tag>|ensemble:<estimator>
+    category TEXT NOT NULL,
+    band_low REAL NOT NULL,
+    band_high REAL NOT NULL,
+    n INTEGER NOT NULL,
+    mean_predicted REAL NOT NULL,
+    mean_actual REAL NOT NULL,
+    brier REAL NOT NULL,
+    log_loss REAL NOT NULL,
+    last_updated TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS orderbook_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    condition_id TEXT NOT NULL,
+    token_id TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    best_bid REAL,
+    best_ask REAL,
+    mid REAL,
+    microprice REAL,
+    bid_depth_1c REAL,
+    bid_depth_5c REAL,
+    ask_depth_1c REAL,
+    ask_depth_5c REAL,
+    top_bid_size REAL,
+    top_ask_size REAL
+);
+CREATE INDEX IF NOT EXISTS idx_ob_snap_token_ts ON orderbook_snapshots(token_id, ts);
+CREATE INDEX IF NOT EXISTS idx_ob_snap_market_ts ON orderbook_snapshots(condition_id, ts);
+
+CREATE TABLE IF NOT EXISTS market_price_minutely (
+    token_id TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    mid REAL,
+    vwap REAL,
+    return_5m REAL,
+    realized_vol_15m REAL,
+    PRIMARY KEY (token_id, ts)
+);
+
+CREATE TABLE IF NOT EXISTS position_postmortem (
+    position_id TEXT PRIMARY KEY,
+    signal_id TEXT,
+    pre_fill_mid REAL,
+    fill_vwap REAL,
+    quoted_slippage REAL,
+    drift_5m REAL,
+    drift_30m REAL,
+    drift_120m REAL,
+    exit_reason TEXT DEFAULT '',
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS market_fingerprints (
+    condition_id TEXT PRIMARY KEY,
+    fingerprint TEXT NOT NULL,
+    manifold_id TEXT DEFAULT '',
+    kalshi_ticker TEXT DEFAULT '',
+    metaculus_id TEXT DEFAULT '',
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_fingerprints ON market_fingerprints(fingerprint);
 
 -- ----- Copy-trading subsystem -----
 
@@ -123,6 +221,7 @@ CREATE TABLE IF NOT EXISTS leader_trades (
 );
 CREATE INDEX IF NOT EXISTS idx_leader_trades_wallet_obs ON leader_trades(wallet, observed_at);
 CREATE INDEX IF NOT EXISTS idx_leader_trades_expected ON leader_trades(expected_copy, copy_order_id);
+CREATE INDEX IF NOT EXISTS idx_leader_trades_condition ON leader_trades(condition_id, observed_at);
 
 CREATE TABLE IF NOT EXISTS paper_orders (
     id TEXT PRIMARY KEY,

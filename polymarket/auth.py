@@ -7,6 +7,7 @@ Usage:
 This derives API credentials from your private key and prints them
 so you can paste them into .env.
 """
+
 import sys
 
 from py_clob_client.client import ClobClient

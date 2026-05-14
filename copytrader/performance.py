@@ -9,6 +9,7 @@ Per-trader performance rollups.
 It marks paper positions to live mid prices, recounts trades, and upserts a
 fresh `copy_performance` row.
 """
+
 from datetime import datetime, timedelta
 from typing import Callable
 

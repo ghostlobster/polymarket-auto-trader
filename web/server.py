@@ -19,6 +19,7 @@ The on-access refresh is what the user asked for: every page load triggers a
 recompute of `copy_performance` (subject to the 30s throttle in
 `copytrader.performance`), so the report is always live without a separate cron.
 """
+
 from pathlib import Path
 
 import structlog
@@ -43,7 +44,7 @@ _TEMPLATES_DIR = Path(__file__).parent / "templates"
 # Promotion ladder + preconditions
 def _can_promote(trader, perf, settings) -> tuple[bool, str]:
     if trader.status == "discovered":
-        return True, ""    # discovered → shadow is always allowed
+        return True, ""  # discovered → shadow is always allowed
     if trader.status == "shadow":
         if perf.trades_observed < 5:
             return False, "shadow→paper: need ≥5 observed trades"
@@ -52,7 +53,10 @@ def _can_promote(trader, perf, settings) -> tuple[bool, str]:
         return True, ""
     if trader.status == "paper":
         if perf.trades_copied < settings.copy_min_confirmed_paper_trades:
-            return False, f"paper→live: need ≥{settings.copy_min_confirmed_paper_trades} confirmed paper trades"
+            return (
+                False,
+                f"paper→live: need ≥{settings.copy_min_confirmed_paper_trades} confirmed paper trades",
+            )
         if perf.realized_pnl + perf.unrealized_pnl <= 0:
             return False, "paper→live: paper PnL must be positive"
         if perf.audit_miss_rate >= settings.copy_audit_miss_rate_demote:
@@ -98,6 +102,54 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
     async def root():
         return RedirectResponse(url="/profiles")
 
+    @app.get("/calibration", response_class=HTMLResponse)
+    async def calibration_view(
+        request: Request,
+        current_user: dict = Depends(require_auth),
+    ):
+        import json as _json
+
+        buckets = await db.get_calibration_buckets()
+        # Aggregate bias-tag performance from resolved signals
+        from collections import defaultdict
+
+        resolved = await db.get_resolved_signals(limit=5000)
+        bias_agg: dict[str, dict[str, float]] = defaultdict(
+            lambda: {"n": 0, "wins": 0, "brier_sum": 0.0}
+        )
+        for s in resolved:
+            if s.was_correct is None:
+                continue
+            try:
+                tags = _json.loads(s.bias_tags_json or "[]")
+            except _json.JSONDecodeError:
+                tags = []
+            for tag in tags:
+                agg = bias_agg[tag]
+                agg["n"] += 1
+                agg["wins"] += int(s.was_correct or 0)
+                agg["brier_sum"] += float(s.realized_brier or 0.0)
+        bias_rows = [
+            {
+                "tag": tag,
+                "n": v["n"],
+                "hit_rate": (v["wins"] / v["n"]) if v["n"] else 0.0,
+                "brier": (v["brier_sum"] / v["n"]) if v["n"] else 0.0,
+            }
+            for tag, v in sorted(bias_agg.items(), key=lambda kv: -kv[1]["n"])
+        ]
+        return templates.TemplateResponse(
+            request,
+            "calibration.html",
+            {
+                "buckets": buckets,
+                "bias_rows": bias_rows,
+                "edge_mode": settings.edge_mode,
+                "active_sources": settings.resolve_sources(),
+                "current_user": current_user,
+            },
+        )
+
     @app.get("/profiles", response_class=HTMLResponse)
     async def list_profiles(
         request: Request,
@@ -108,7 +160,9 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
         for t in traders:
             mode = t.status if t.status in ("paper", "live", "shadow") else "shadow"
             perf = await recompute_for_wallet(
-                db, t.wallet, mode=mode,
+                db,
+                t.wallet,
+                mode=mode,
                 throttle_secs=settings.copy_report_refresh_throttle_secs,
                 mark_to_market=mark_to_market,
             )
@@ -136,7 +190,9 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
             raise HTTPException(status_code=404, detail="trader not found")
         mode = trader.status if trader.status in ("paper", "live", "shadow") else "shadow"
         perf = await recompute_for_wallet(
-            db, wallet, mode=mode,
+            db,
+            wallet,
+            mode=mode,
             throttle_secs=settings.copy_report_refresh_throttle_secs,
             mark_to_market=mark_to_market,
         )
@@ -176,9 +232,12 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
             raise HTTPException(404, "trader not found")
         mode = trader.status if trader.status in ("paper", "live", "shadow") else "shadow"
         perf = await recompute_for_wallet(
-            db, wallet, mode=mode,
+            db,
+            wallet,
+            mode=mode,
             throttle_secs=settings.copy_report_refresh_throttle_secs,
-            mark_to_market=mark_to_market, force=True,
+            mark_to_market=mark_to_market,
+            force=True,
         )
         ok, reason = _can_promote(trader, perf, settings)
         if not ok:

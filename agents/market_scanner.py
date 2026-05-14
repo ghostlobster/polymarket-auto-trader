@@ -1,6 +1,7 @@
 """
 MarketScannerAgent: scans all Polymarket markets and ranks opportunities.
 """
+
 import json
 
 import structlog

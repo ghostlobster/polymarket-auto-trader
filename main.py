@@ -6,6 +6,7 @@ Usage:
     DRY_RUN=true python main.py           # Dry-run mode (no real orders)
     COPY_ENABLED=true python main.py      # Add the copy-trading subsystem in parallel
 """
+
 import asyncio
 import contextlib
 import signal as signal_module
@@ -15,9 +16,11 @@ import httpx
 import structlog
 
 from agents import OrchestratorAgent
+from agents.calibration_auditor import CalibrationAuditor
 from config import Settings
 from database import init_db
 from polymarket.client import PolymarketClient
+from polymarket.snapshotter import OrderBookSnapshotter
 
 log = structlog.get_logger(__name__)
 
@@ -40,7 +43,7 @@ def configure_logging(level: str) -> None:
 
 
 async def thesis_loop(orchestrator, settings, shutdown):
-    """Existing 15-minute research-driven trading cycle."""
+    """Research-driven trading cycle on `scan_interval_minutes` cadence."""
     cycle_num = 0
     while not shutdown.is_set():
         cycle_num += 1
@@ -48,7 +51,8 @@ async def thesis_loop(orchestrator, settings, shutdown):
         try:
             summary = await orchestrator.run_cycle()
             log.info(
-                "Thesis cycle complete", cycle=cycle_num,
+                "Thesis cycle complete",
+                cycle=cycle_num,
                 opportunities=summary["opportunities_found"],
                 signals=summary["signals_generated"],
                 trades=summary["trades_executed"],
@@ -62,6 +66,36 @@ async def thesis_loop(orchestrator, settings, shutdown):
         interval_secs = settings.scan_interval_minutes * 60
         try:
             await asyncio.wait_for(shutdown.wait(), timeout=interval_secs)
+        except asyncio.TimeoutError:
+            pass
+
+
+async def calibration_loop(auditor: CalibrationAuditor, settings, shutdown):
+    """Hourly calibration audit — closes the prediction→outcome loop."""
+    while not shutdown.is_set():
+        try:
+            summary = await auditor.run_once()
+            if summary.get("newly_resolved", 0):
+                log.info("Calibration audit", **summary)
+        except Exception as exc:
+            log.error("Calibration audit failed", error=str(exc))
+        try:
+            await asyncio.wait_for(shutdown.wait(), timeout=settings.calibration_interval_secs)
+        except asyncio.TimeoutError:
+            pass
+
+
+async def snapshot_loop(snapshotter: OrderBookSnapshotter, settings, shutdown):
+    """Periodic order-book snapshots that feed the bias detector."""
+    while not shutdown.is_set():
+        try:
+            summary = await snapshotter.run_once()
+            if summary.get("snapshotted", 0) or summary.get("errors", 0):
+                log.debug("Snapshot pass", **summary)
+        except Exception as exc:
+            log.error("Snapshot pass failed", error=str(exc))
+        try:
+            await asyncio.wait_for(shutdown.wait(), timeout=settings.snapshot_interval_secs)
         except asyncio.TimeoutError:
             pass
 
@@ -83,7 +117,6 @@ async def copy_loop(copy_agent, settings, shutdown):
 
 async def discovery_loop(discovery_agent, settings, shutdown):
     """Daily-cadence loop refreshing the leaderboard of tracked traders."""
-    # First run on startup so users see results immediately.
     while not shutdown.is_set():
         try:
             kept = await discovery_agent.discover()
@@ -114,6 +147,7 @@ async def audit_loop(audit_agent, settings, shutdown):
 
 async def web_server_task(app, host: str, port: int, shutdown):
     import uvicorn
+
     config = uvicorn.Config(app, host=host, port=port, log_level="warning")
     server = uvicorn.Server(config)
     server_task = asyncio.create_task(server.serve())
@@ -133,17 +167,20 @@ async def main() -> None:
         scan_interval_minutes=settings.scan_interval_minutes,
         max_position_usdc=settings.max_position_usdc,
         copy_enabled=settings.copy_enabled,
+        edge_mode=settings.edge_mode,
+        active_sources=settings.resolve_sources(),
     )
     if settings.dry_run:
         log.warning("DRY RUN MODE — no real orders will be placed")
     if not settings.polymarket_private_key:
-        log.warning(
-            "POLYMARKET_PRIVATE_KEY not set. Run: python -m polymarket.auth setup"
-        )
+        log.warning("POLYMARKET_PRIVATE_KEY not set. Run: python -m polymarket.auth setup")
 
     db = await init_db(settings.db_path)
     poly = PolymarketClient(settings)
-    orchestrator = OrchestratorAgent(settings, poly, db)
+    http_client = httpx.AsyncClient(timeout=15.0)
+    orchestrator = OrchestratorAgent(settings, poly, db, http_client=http_client)
+    auditor = CalibrationAuditor(settings, poly, db)
+    snapshotter = OrderBookSnapshotter(settings, poly, db)
 
     shutdown = asyncio.Event()
 
@@ -154,14 +191,16 @@ async def main() -> None:
     signal_module.signal(signal_module.SIGINT, _handle_signal)
     signal_module.signal(signal_module.SIGTERM, _handle_signal)
 
-    tasks = [asyncio.create_task(thesis_loop(orchestrator, settings, shutdown))]
+    tasks = [
+        asyncio.create_task(thesis_loop(orchestrator, settings, shutdown)),
+        asyncio.create_task(calibration_loop(auditor, settings, shutdown)),
+        asyncio.create_task(snapshot_loop(snapshotter, settings, shutdown)),
+    ]
 
-    http_client = None
     if settings.copy_enabled:
         from agents import CopyAuditAgent, CopyTraderAgent, TraderDiscoveryAgent
         from polymarket.data_client import PolymarketDataClient
 
-        http_client = httpx.AsyncClient(timeout=15.0)
         data_client = PolymarketDataClient(settings.polymarket_data_api, http=http_client)
 
         discovery = TraderDiscoveryAgent(settings, data_client, db)
@@ -179,10 +218,13 @@ async def main() -> None:
 
         if settings.copy_web_enabled:
             from web.server import build_app
+
             app = build_app(db, copy_agent, mark_to_market)
-            tasks.append(asyncio.create_task(
-                web_server_task(app, settings.copy_web_host, settings.copy_web_port, shutdown)
-            ))
+            tasks.append(
+                asyncio.create_task(
+                    web_server_task(app, settings.copy_web_host, settings.copy_web_port, shutdown)
+                )
+            )
             log.info(
                 "Copy-trader web UI started",
                 url=f"http://{settings.copy_web_host}:{settings.copy_web_port}/profiles",
@@ -199,8 +241,7 @@ async def main() -> None:
         with contextlib.suppress(BaseException):
             await t
 
-    if http_client is not None:
-        await http_client.aclose()
+    await http_client.aclose()
     await db.close()
     log.info("Polymarket Auto-Trader stopped cleanly")
 

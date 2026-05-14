@@ -1,4 +1,5 @@
 """Models for the copy-trading subsystem."""
+
 from datetime import datetime
 from uuid import uuid4
 
@@ -21,7 +22,7 @@ class TrackedTrader(BaseModel):
     max_drawdown: float = 0.0
     total_volume_usdc: float = 0.0
     resolution_sniper_frac: float = 0.0
-    last_seen_ts: int = 0                 # unix seconds — high-water mark for activity polling
+    last_seen_ts: int = 0  # unix seconds — high-water mark for activity polling
     last_evaluated_at: datetime | None = None
     notes: str = ""
     created_at: datetime | None = Field(default_factory=datetime.utcnow)
@@ -32,27 +33,27 @@ class LeaderTrade(BaseModel):
     tx_hash: str
     condition_id: str
     token_id: str
-    side: str                              # BUY|SELL
-    outcome: str                           # YES|NO
+    side: str  # BUY|SELL
+    outcome: str  # YES|NO
     size_usdc: float
     price: float
     observed_at: datetime
     expected_copy: bool = False
     copy_order_id: str = ""
-    copy_mode: str = ""                    # shadow|paper|live (set after dispatch)
+    copy_mode: str = ""  # shadow|paper|live (set after dispatch)
     skip_reason: str = ""
     created_at: datetime | None = Field(default_factory=datetime.utcnow)
 
 
 class PaperOrder(BaseModel):
     id: str = Field(default_factory=lambda: f"paper-{uuid4()}")
-    wallet: str                            # the leader being followed
+    wallet: str  # the leader being followed
     market_id: str
     signal_id: str = ""
     token_id: str
-    side: str                              # BUY|SELL
+    side: str  # BUY|SELL
     size_usdc: float
-    price: float                           # simulated VWAP fill price
+    price: float  # simulated VWAP fill price
     order_type: str = "MARKET"
     status: str = "FILLED"
     placed_at: datetime | None = None
@@ -68,7 +69,7 @@ class PaperPosition(BaseModel):
     market_id: str
     question: str = ""
     token_id: str
-    side: str                              # YES|NO
+    side: str  # YES|NO
     size: float
     avg_price: float
     current_price: float = 0.0
@@ -83,11 +84,11 @@ class PaperPosition(BaseModel):
 
 class CopyPerformance(BaseModel):
     wallet: str
-    mode: str                              # shadow|paper|live|backtest
+    mode: str  # shadow|paper|live|backtest
     trades_observed: int = 0
     trades_copied: int = 0
-    copy_hit_rate: float = 0.0             # trades_copied / trades_observed
-    audit_miss_rate: float = 0.0           # missed-by-bug / expected
+    copy_hit_rate: float = 0.0  # trades_copied / trades_observed
+    audit_miss_rate: float = 0.0  # missed-by-bug / expected
     realized_pnl: float = 0.0
     unrealized_pnl: float = 0.0
     win_count: int = 0

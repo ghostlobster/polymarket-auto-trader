@@ -1,4 +1,5 @@
 """Copy-trading subsystem (parallel to the thesis pipeline)."""
+
 from .strategies import (
     PRESETS,
     CopyDecision,
@@ -8,5 +9,9 @@ from .strategies import (
 )
 
 __all__ = [
-    "PRESETS", "StrategyPreset", "CopyDecision", "apply_preset", "get_preset",
+    "PRESETS",
+    "StrategyPreset",
+    "CopyDecision",
+    "apply_preset",
+    "get_preset",
 ]

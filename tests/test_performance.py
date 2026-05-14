@@ -1,4 +1,5 @@
 """Performance recompute + throttle tests."""
+
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -19,10 +20,15 @@ async def db(tmp_path):
 
 
 async def _seed(db, wallet="0xL"):
-    await db.upsert_tracked_trader(TrackedTrader(
-        wallet=wallet, status="paper", preset="scaled_market",
-        score=70.0, sample_size=20,
-    ))
+    await db.upsert_tracked_trader(
+        TrackedTrader(
+            wallet=wallet,
+            status="paper",
+            preset="scaled_market",
+            score=70.0,
+            sample_size=20,
+        )
+    )
 
 
 @pytest.mark.asyncio
@@ -31,25 +37,55 @@ async def test_recompute_counts_trades_and_pnl(db):
     now = datetime.now(timezone.utc)
 
     # Two leader trades: one copied, one expected miss
-    await db.record_leader_trade(LeaderTrade(
-        wallet="0xL", tx_hash="tx1", condition_id="c", token_id="t",
-        side="BUY", outcome="YES", size_usdc=10, price=0.5,
-        observed_at=now, expected_copy=True, copy_order_id="paper-1",
-        copy_mode="paper",
-    ))
-    await db.record_leader_trade(LeaderTrade(
-        wallet="0xL", tx_hash="tx2", condition_id="c", token_id="t",
-        side="BUY", outcome="YES", size_usdc=10, price=0.5,
-        observed_at=now, expected_copy=True, copy_order_id="",
-        copy_mode="paper",
-    ))
+    await db.record_leader_trade(
+        LeaderTrade(
+            wallet="0xL",
+            tx_hash="tx1",
+            condition_id="c",
+            token_id="t",
+            side="BUY",
+            outcome="YES",
+            size_usdc=10,
+            price=0.5,
+            observed_at=now,
+            expected_copy=True,
+            copy_order_id="paper-1",
+            copy_mode="paper",
+        )
+    )
+    await db.record_leader_trade(
+        LeaderTrade(
+            wallet="0xL",
+            tx_hash="tx2",
+            condition_id="c",
+            token_id="t",
+            side="BUY",
+            outcome="YES",
+            size_usdc=10,
+            price=0.5,
+            observed_at=now,
+            expected_copy=True,
+            copy_order_id="",
+            copy_mode="paper",
+        )
+    )
 
     # A closed paper position with realized profit
-    await db.save_paper_position(PaperPosition(
-        id=str(uuid4()), wallet="0xL", market_id="c", token_id="t", side="YES",
-        size=0.0, avg_price=0.5, current_price=0.6, realized_pnl=2.0,
-        opened_at=now, closed_at=now,
-    ))
+    await db.save_paper_position(
+        PaperPosition(
+            id=str(uuid4()),
+            wallet="0xL",
+            market_id="c",
+            token_id="t",
+            side="YES",
+            size=0.0,
+            avg_price=0.5,
+            current_price=0.6,
+            realized_pnl=2.0,
+            opened_at=now,
+            closed_at=now,
+        )
+    )
 
     perf = await recompute_for_wallet(db, "0xL", mode="paper", force=True)
     assert perf.trades_observed == 2
@@ -64,22 +100,42 @@ async def test_recompute_counts_trades_and_pnl(db):
 async def test_throttle_returns_cached_until_window_expires(db):
     await _seed(db)
     now = datetime.now(timezone.utc)
-    await db.record_leader_trade(LeaderTrade(
-        wallet="0xL", tx_hash="tx1", condition_id="c", token_id="t",
-        side="BUY", outcome="YES", size_usdc=10, price=0.5,
-        observed_at=now, expected_copy=True, copy_order_id="paper-1",
-        copy_mode="paper",
-    ))
+    await db.record_leader_trade(
+        LeaderTrade(
+            wallet="0xL",
+            tx_hash="tx1",
+            condition_id="c",
+            token_id="t",
+            side="BUY",
+            outcome="YES",
+            size_usdc=10,
+            price=0.5,
+            observed_at=now,
+            expected_copy=True,
+            copy_order_id="paper-1",
+            copy_mode="paper",
+        )
+    )
 
     p1 = await recompute_for_wallet(db, "0xL", mode="paper", throttle_secs=60, force=True)
 
     # Add another trade after the first force-recompute
-    await db.record_leader_trade(LeaderTrade(
-        wallet="0xL", tx_hash="tx2", condition_id="c", token_id="t",
-        side="BUY", outcome="YES", size_usdc=10, price=0.5,
-        observed_at=now, expected_copy=True, copy_order_id="paper-2",
-        copy_mode="paper",
-    ))
+    await db.record_leader_trade(
+        LeaderTrade(
+            wallet="0xL",
+            tx_hash="tx2",
+            condition_id="c",
+            token_id="t",
+            side="BUY",
+            outcome="YES",
+            size_usdc=10,
+            price=0.5,
+            observed_at=now,
+            expected_copy=True,
+            copy_order_id="paper-2",
+            copy_mode="paper",
+        )
+    )
 
     p2 = await recompute_for_wallet(db, "0xL", mode="paper", throttle_secs=60)
     # Throttled — returns the cached row, still showing 1 trade

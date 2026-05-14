@@ -2,6 +2,7 @@
 Async wrapper around py-clob-client for Polymarket CLOB API.
 All prices are normalised to 0.0–1.0 internally (Polymarket uses 0–1 natively).
 """
+
 import asyncio
 from datetime import datetime
 from functools import partial
@@ -40,7 +41,7 @@ class PolymarketClient:
             key=self._settings.polymarket_private_key,
             chain_id=self._settings.polymarket_chain_id,
             creds=creds,
-            signature_type=2,   # poly_gnosis_safe
+            signature_type=2,  # poly_gnosis_safe
         )
 
     async def _run(self, fn, *args, **kwargs):
@@ -61,33 +62,41 @@ class PolymarketClient:
     async def get_markets(self, limit: int = 100, offset: int = 0) -> list[Market]:
         raw = await self._run(self.client.get_markets, next_cursor=str(offset))
         markets = []
-        for m in (raw.get("data") or []):
+        for m in raw.get("data") or []:
             try:
                 tokens = m.get("tokens", [])
                 yes_tok = next((t["token_id"] for t in tokens if t.get("outcome") == "Yes"), "")
                 no_tok = next((t["token_id"] for t in tokens if t.get("outcome") == "No"), "")
-                markets.append(Market(
-                    condition_id=m["condition_id"],
-                    question=m.get("question", ""),
-                    category=m.get("tags", [None])[0] or "Other",
-                    description=m.get("description", ""),
-                    end_date_iso=m.get("end_date_iso", ""),
-                    active=m.get("active", True),
-                    closed=m.get("closed", False),
-                    volume=float(m.get("volume", 0) or 0),
-                    volume_24h=float(m.get("volume_24hr", 0) or 0),
-                    liquidity=float(m.get("liquidity", 0) or 0),
-                    yes_token_id=yes_tok,
-                    no_token_id=no_tok,
-                ))
+                markets.append(
+                    Market(
+                        condition_id=m["condition_id"],
+                        question=m.get("question", ""),
+                        category=m.get("tags", [None])[0] or "Other",
+                        description=m.get("description", ""),
+                        end_date_iso=m.get("end_date_iso", ""),
+                        active=m.get("active", True),
+                        closed=m.get("closed", False),
+                        volume=float(m.get("volume", 0) or 0),
+                        volume_24h=float(m.get("volume_24hr", 0) or 0),
+                        liquidity=float(m.get("liquidity", 0) or 0),
+                        yes_token_id=yes_tok,
+                        no_token_id=no_tok,
+                    )
+                )
             except Exception as exc:
-                log.warning("Failed to parse market", error=str(exc), market_id=m.get("condition_id"))
+                log.warning(
+                    "Failed to parse market", error=str(exc), market_id=m.get("condition_id")
+                )
         return markets
 
     async def get_orderbook(self, token_id: str) -> OrderBook:
         raw = await self._run(self.client.get_order_book, token_id)
-        bids = [PriceLevel(price=float(b["price"]), size=float(b["size"])) for b in (raw.bids or [])]
-        asks = [PriceLevel(price=float(a["price"]), size=float(a["size"])) for a in (raw.asks or [])]
+        bids = [
+            PriceLevel(price=float(b["price"]), size=float(b["size"])) for b in (raw.bids or [])
+        ]
+        asks = [
+            PriceLevel(price=float(a["price"]), size=float(a["size"])) for a in (raw.asks or [])
+        ]
         return OrderBook(token_id=token_id, bids=bids, asks=asks)
 
     async def get_last_trade_price(self, token_id: str) -> float:
@@ -97,6 +106,19 @@ class PolymarketClient:
         except Exception:
             return 0.0
 
+    async def get_market(self, condition_id: str) -> dict:
+        """
+        Fetch a single market's metadata. Returns the raw dict from py-clob-client
+        with at least `condition_id`, `closed`, `tokens`, and (when resolved) outcome
+        information. Empty dict on failure.
+        """
+        try:
+            raw = await self._run(self.client.get_market, condition_id)
+            return raw or {}
+        except Exception as exc:
+            log.warning("Failed to fetch market", condition_id=condition_id, error=str(exc))
+            return {}
+
     # ------------------------------------------------------------------ #
     #  Account / Positions                                                 #
     # ------------------------------------------------------------------ #
@@ -105,16 +127,18 @@ class PolymarketClient:
         try:
             raw = await self._run(self.client.get_positions)
             positions = []
-            for p in (raw or []):
-                positions.append(Position(
-                    id=p.get("id", ""),
-                    market_id=p.get("condition_id", ""),
-                    token_id=p.get("asset_id", ""),
-                    side="YES" if p.get("outcome") == "Yes" else "NO",
-                    size=float(p.get("size", 0)),
-                    avg_price=float(p.get("avg_price", 0)),
-                    current_price=float(p.get("cur_price", 0)),
-                ))
+            for p in raw or []:
+                positions.append(
+                    Position(
+                        id=p.get("id", ""),
+                        market_id=p.get("condition_id", ""),
+                        token_id=p.get("asset_id", ""),
+                        side="YES" if p.get("outcome") == "Yes" else "NO",
+                        size=float(p.get("size", 0)),
+                        avg_price=float(p.get("avg_price", 0)),
+                        current_price=float(p.get("cur_price", 0)),
+                    )
+                )
             return positions
         except Exception as exc:
             log.warning("Failed to fetch positions", error=str(exc))
@@ -162,7 +186,13 @@ class PolymarketClient:
             resp = await self._run(self.client.create_and_post_order, args)
             order.id = resp.get("orderID", "")
             order.status = OrderStatus.OPEN
-            log.info("Limit order placed", order_id=order.id, token=token_id, side=side.value, price=price)
+            log.info(
+                "Limit order placed",
+                order_id=order.id,
+                token=token_id,
+                side=side.value,
+                price=price,
+            )
         except Exception as exc:
             order.status = OrderStatus.FAILED
             order.error = str(exc)

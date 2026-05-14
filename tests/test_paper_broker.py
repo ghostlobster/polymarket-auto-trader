@@ -33,16 +33,23 @@ def _book(token_id="t1", asks=None, bids=None):
 
 @pytest.mark.asyncio
 async def test_market_buy_walks_book(db):
-    poly = FakePoly({
-        "t1": _book(asks=[
-            {"price": 0.50, "size": 10},   # 5 USDC capacity
-            {"price": 0.52, "size": 100},  # plenty
-        ]),
-    })
+    poly = FakePoly(
+        {
+            "t1": _book(
+                asks=[
+                    {"price": 0.50, "size": 10},  # 5 USDC capacity
+                    {"price": 0.52, "size": 100},  # plenty
+                ]
+            ),
+        }
+    )
     broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=1000)
 
     order = await broker.place_market_order(
-        token_id="t1", side=OrderSide.BUY, size_usdc=20, market_id="m1",
+        token_id="t1",
+        side=OrderSide.BUY,
+        size_usdc=20,
+        market_id="m1",
     )
     assert order.status == "FILLED"
     # 5 usdc @ 0.50 -> 10 shares; remaining 15 usdc @ 0.52 -> 28.8462 shares
@@ -55,12 +62,18 @@ async def test_market_buy_walks_book(db):
 
 @pytest.mark.asyncio
 async def test_limit_buy_skips_above_limit(db):
-    poly = FakePoly({
-        "t1": _book(asks=[{"price": 0.60, "size": 100}]),
-    })
+    poly = FakePoly(
+        {
+            "t1": _book(asks=[{"price": 0.60, "size": 100}]),
+        }
+    )
     broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=1000)
     order = await broker.place_limit_order(
-        token_id="t1", side=OrderSide.BUY, size_usdc=20, price=0.50, market_id="m1",
+        token_id="t1",
+        side=OrderSide.BUY,
+        size_usdc=20,
+        price=0.50,
+        market_id="m1",
     )
     assert order.status == "FAILED"
     assert order.error == "no_fill_within_limit"
@@ -69,20 +82,28 @@ async def test_limit_buy_skips_above_limit(db):
 
 @pytest.mark.asyncio
 async def test_sell_realizes_pnl(db):
-    poly = FakePoly({
-        "t1": _book(
-            asks=[{"price": 0.50, "size": 100}],
-            bids=[{"price": 0.65, "size": 100}],
-        ),
-    })
+    poly = FakePoly(
+        {
+            "t1": _book(
+                asks=[{"price": 0.50, "size": 100}],
+                bids=[{"price": 0.65, "size": 100}],
+            ),
+        }
+    )
     broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=1000)
     await broker.place_market_order(
-        token_id="t1", side=OrderSide.BUY, size_usdc=10, market_id="m1",
+        token_id="t1",
+        side=OrderSide.BUY,
+        size_usdc=10,
+        market_id="m1",
     )  # buys 20 shares @ 0.50
 
     # Now sell against the bid side
     sell = await broker.place_market_order(
-        token_id="t1", side=OrderSide.SELL, size_usdc=13, market_id="m1",
+        token_id="t1",
+        side=OrderSide.SELL,
+        size_usdc=13,
+        market_id="m1",
     )
     assert sell.status == "FILLED"
     positions = await db.get_paper_positions(wallet="0xLEAD")
@@ -94,12 +115,17 @@ async def test_sell_realizes_pnl(db):
 
 @pytest.mark.asyncio
 async def test_balance_tracks_open_cost_basis(db):
-    poly = FakePoly({
-        "t1": _book(asks=[{"price": 0.40, "size": 100}]),
-    })
+    poly = FakePoly(
+        {
+            "t1": _book(asks=[{"price": 0.40, "size": 100}]),
+        }
+    )
     broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=100)
     await broker.place_market_order(
-        token_id="t1", side=OrderSide.BUY, size_usdc=20, market_id="m1",
+        token_id="t1",
+        side=OrderSide.BUY,
+        size_usdc=20,
+        market_id="m1",
     )
     bal = await broker.get_balance_usdc()
     assert bal == pytest.approx(80.0, rel=1e-3)

@@ -1,4 +1,5 @@
 """CopyTraderAgent integration test using stubs for data + execution."""
+
 from datetime import datetime, timezone
 
 import pytest
@@ -63,19 +64,23 @@ async def test_copy_paper_records_leader_trade_and_order(settings, tmp_path):
     )
     poly = FakePoly(book)
     ts = int(datetime.now(timezone.utc).timestamp())
-    data = FakeData({
-        "0xleader": [{
-            "tx_hash": "0xtx1",
-            "timestamp": ts,
-            "type": "TRADE",
-            "side": "BUY",
-            "outcome": "YES",
-            "condition_id": "cond1",
-            "token_id": "tok1",
-            "size_usdc": 1000.0,
-            "price": 0.50,
-        }],
-    })
+    data = FakeData(
+        {
+            "0xleader": [
+                {
+                    "tx_hash": "0xtx1",
+                    "timestamp": ts,
+                    "type": "TRADE",
+                    "side": "BUY",
+                    "outcome": "YES",
+                    "condition_id": "cond1",
+                    "token_id": "tok1",
+                    "size_usdc": 1000.0,
+                    "price": 0.50,
+                }
+            ],
+        }
+    )
 
     agent = CopyTraderAgent(settings, data, poly, db, risk=None)
     summary = await agent.cycle()
@@ -103,10 +108,15 @@ async def test_copy_paper_records_leader_trade_and_order(settings, tmp_path):
 @pytest.mark.asyncio
 async def test_copy_dedupes_repeated_event(settings):
     db = await init_db(settings.db_path)
-    await db.upsert_tracked_trader(TrackedTrader(
-        wallet="0xleader", status="paper", preset="scaled_market",
-        score=80.0, sample_size=100,
-    ))
+    await db.upsert_tracked_trader(
+        TrackedTrader(
+            wallet="0xleader",
+            status="paper",
+            preset="scaled_market",
+            score=80.0,
+            sample_size=100,
+        )
+    )
     book = OrderBook(
         token_id="tok1",
         bids=[PriceLevel(price=0.48, size=200)],
@@ -114,9 +124,15 @@ async def test_copy_dedupes_repeated_event(settings):
     )
     ts = int(datetime.now(timezone.utc).timestamp())
     ev = {
-        "tx_hash": "0xtx-same", "timestamp": ts, "type": "TRADE",
-        "side": "BUY", "outcome": "YES", "condition_id": "cond1",
-        "token_id": "tok1", "size_usdc": 1000.0, "price": 0.50,
+        "tx_hash": "0xtx-same",
+        "timestamp": ts,
+        "type": "TRADE",
+        "side": "BUY",
+        "outcome": "YES",
+        "condition_id": "cond1",
+        "token_id": "tok1",
+        "size_usdc": 1000.0,
+        "price": 0.50,
     }
     data = FakeData({"0xleader": [ev]})
     agent = CopyTraderAgent(settings, data, FakePoly(book), db, risk=None)
@@ -124,7 +140,7 @@ async def test_copy_dedupes_repeated_event(settings):
     # Re-run — dedupe should make it a no-op
     summary = await agent.cycle()
     assert summary["events"] == 1
-    assert summary["copied"] == 0   # second pass: dedupe
+    assert summary["copied"] == 0  # second pass: dedupe
 
     paper_orders = await db.get_paper_orders(wallet="0xleader")
     assert len(paper_orders) == 1
@@ -134,10 +150,15 @@ async def test_copy_dedupes_repeated_event(settings):
 @pytest.mark.asyncio
 async def test_shadow_status_records_but_does_not_execute(settings):
     db = await init_db(settings.db_path)
-    await db.upsert_tracked_trader(TrackedTrader(
-        wallet="0xleader", status="shadow", preset="shadow",  # shadow preset
-        score=80.0, sample_size=100,
-    ))
+    await db.upsert_tracked_trader(
+        TrackedTrader(
+            wallet="0xleader",
+            status="shadow",
+            preset="shadow",  # shadow preset
+            score=80.0,
+            sample_size=100,
+        )
+    )
     book = OrderBook(
         token_id="tok1",
         bids=[PriceLevel(price=0.48, size=200)],
@@ -145,9 +166,15 @@ async def test_shadow_status_records_but_does_not_execute(settings):
     )
     ts = int(datetime.now(timezone.utc).timestamp())
     ev = {
-        "tx_hash": "0xtxshadow", "timestamp": ts, "type": "TRADE",
-        "side": "BUY", "outcome": "YES", "condition_id": "cond1",
-        "token_id": "tok1", "size_usdc": 1000.0, "price": 0.50,
+        "tx_hash": "0xtxshadow",
+        "timestamp": ts,
+        "type": "TRADE",
+        "side": "BUY",
+        "outcome": "YES",
+        "condition_id": "cond1",
+        "token_id": "tok1",
+        "size_usdc": 1000.0,
+        "price": 0.50,
     }
     data = FakeData({"0xleader": [ev]})
     agent = CopyTraderAgent(settings, data, FakePoly(book), db, risk=None)

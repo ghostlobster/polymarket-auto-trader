@@ -1,4 +1,5 @@
 """Tests for database layer."""
+
 import pytest
 import pytest_asyncio
 
@@ -39,6 +40,7 @@ async def test_save_and_retrieve_signal(db):
 @pytest.mark.asyncio
 async def test_save_and_retrieve_order(db):
     from datetime import datetime
+
     order = Order(
         id="order-001",
         market_id="m1",
@@ -59,6 +61,7 @@ async def test_save_and_retrieve_order(db):
 @pytest.mark.asyncio
 async def test_open_positions(db):
     from datetime import datetime
+
     pos = Position(
         id="pos-001",
         market_id="m2",
@@ -79,6 +82,7 @@ async def test_open_positions(db):
 @pytest.mark.asyncio
 async def test_realized_pnl_sum(db):
     from datetime import datetime
+
     for i, pnl in enumerate([10.0, -5.0, 20.0]):
         pos = Position(
             id=f"pos-{i}",

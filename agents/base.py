@@ -1,6 +1,7 @@
 """
 BaseAgent: wraps Anthropic Claude with tool-use loop and prompt caching.
 """
+
 import json
 from typing import Any
 
@@ -97,11 +98,13 @@ class BaseAgent:
                         result = json.dumps({"error": str(exc)})
                         log.warning("Tool error", agent=self.name, tool=block.name, error=str(exc))
 
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": result,
-                })
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result,
+                    }
+                )
 
             messages.append({"role": "user", "content": tool_results})
 

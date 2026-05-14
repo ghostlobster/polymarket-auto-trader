@@ -13,6 +13,7 @@ Auto-demotes: if a trader's audit miss rate over the recent window exceeds
 COPY_AUDIT_MISS_RATE_DEMOTE, the trader is moved one stage back
 (live -> paper, paper -> shadow). Never auto-promotes.
 """
+
 from datetime import datetime, timedelta
 
 import structlog
@@ -54,7 +55,9 @@ class CopyAuditAgent:
             # Recompute (forces a fresh row, ignoring throttle) so demotion logic
             # sees current numbers.
             perf = await recompute_for_wallet(
-                self._db, t.wallet, mode=t.status if t.status != "discovered" else "shadow",
+                self._db,
+                t.wallet,
+                mode=t.status if t.status != "discovered" else "shadow",
                 throttle_secs=self._settings.copy_report_refresh_throttle_secs,
                 mark_to_market=self._mark_to_market,
                 force=True,
@@ -69,7 +72,9 @@ class CopyAuditAgent:
                     await self._db.set_trader_status(t.wallet, target)
                     log.warning(
                         "Auto-demoted trader",
-                        wallet=t.wallet, from_status=t.status, to_status=target,
+                        wallet=t.wallet,
+                        from_status=t.status,
+                        to_status=target,
                         miss_rate=perf.audit_miss_rate,
                     )
                     summary["demoted"] += 1

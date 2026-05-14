@@ -1,6 +1,7 @@
 """
 ResearchAnalystAgent: researches a market using web search to assess true probability.
 """
+
 import json
 
 import structlog

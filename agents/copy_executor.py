@@ -4,6 +4,7 @@ CopyExecutor: dispatches a copy decision to live (PolymarketClient) or paper
 
 Returns (order_id, mode) or ("", reason) on skip / failure.
 """
+
 from datetime import datetime
 
 import structlog
@@ -48,14 +49,16 @@ class CopyExecutor:
         leader_tx_hash: str,
     ) -> tuple[str, str]:
         """Returns (order_id, mode). order_id is '' on skip/failure."""
-        mode = trader.status   # shadow|paper|live
+        mode = trader.status  # shadow|paper|live
 
         if mode == "shadow":
             log.info("Shadow mode — no execution", wallet=trader.wallet, signal_id=signal.id)
             return "", "shadow"
 
-        side = OrderSide.BUY if signal.side == "YES" or signal.side == "BUY" else (
-            OrderSide.SELL if signal.side == "SELL" else OrderSide.BUY
+        side = (
+            OrderSide.BUY
+            if signal.side == "YES" or signal.side == "BUY"
+            else (OrderSide.SELL if signal.side == "SELL" else OrderSide.BUY)
         )
 
         if mode == "paper":
@@ -63,15 +66,21 @@ class CopyExecutor:
             try:
                 if decision.order_type == "market":
                     order = await broker.place_market_order(
-                        token_id=signal.token_id, side=side,
-                        size_usdc=decision.size_usdc, market_id=signal.market_id,
-                        signal_id=signal.id, leader_tx_hash=leader_tx_hash,
+                        token_id=signal.token_id,
+                        side=side,
+                        size_usdc=decision.size_usdc,
+                        market_id=signal.market_id,
+                        signal_id=signal.id,
+                        leader_tx_hash=leader_tx_hash,
                     )
                 else:
                     order = await broker.place_limit_order(
-                        token_id=signal.token_id, side=side,
-                        size_usdc=decision.size_usdc, price=decision.limit_price or 0.0,
-                        market_id=signal.market_id, signal_id=signal.id,
+                        token_id=signal.token_id,
+                        side=side,
+                        size_usdc=decision.size_usdc,
+                        price=decision.limit_price or 0.0,
+                        market_id=signal.market_id,
+                        signal_id=signal.id,
                         leader_tx_hash=leader_tx_hash,
                     )
             except Exception as exc:
@@ -88,15 +97,20 @@ class CopyExecutor:
             try:
                 if decision.order_type == "market":
                     order = await self._poly.place_market_order(
-                        token_id=signal.token_id, side=side,
-                        size_usdc=decision.size_usdc, market_id=signal.market_id,
+                        token_id=signal.token_id,
+                        side=side,
+                        size_usdc=decision.size_usdc,
+                        market_id=signal.market_id,
                         signal_id=signal.id,
                     )
                 else:
                     order = await self._poly.place_limit_order(
-                        token_id=signal.token_id, side=side,
-                        size_usdc=decision.size_usdc, price=decision.limit_price or 0.0,
-                        market_id=signal.market_id, signal_id=signal.id,
+                        token_id=signal.token_id,
+                        side=side,
+                        size_usdc=decision.size_usdc,
+                        price=decision.limit_price or 0.0,
+                        market_id=signal.market_id,
+                        signal_id=signal.id,
                     )
             except Exception as exc:
                 log.error("Live copy order failed", wallet=trader.wallet, error=str(exc))
