@@ -30,7 +30,6 @@ def configure_logging(level: str) -> None:
         processors=[
             structlog.contextvars.merge_contextvars,
             structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.dev.ConsoleRenderer(),
         ],
@@ -197,6 +196,19 @@ async def main() -> None:
         asyncio.create_task(snapshot_loop(snapshotter, settings, shutdown)),
     ]
 
+    from web.server import build_app
+
+    web_app = build_app(db)
+    tasks.append(
+        asyncio.create_task(
+            web_server_task(web_app, settings.copy_web_host, settings.copy_web_port, shutdown)
+        )
+    )
+    log.info(
+        "Web UI dashboard started",
+        url=f"http://{settings.copy_web_host}:{settings.copy_web_port}/profiles",
+    )
+
     if settings.copy_enabled:
         from agents import CopyAuditAgent, CopyTraderAgent, TraderDiscoveryAgent
         from polymarket.data_client import PolymarketDataClient
@@ -215,20 +227,6 @@ async def main() -> None:
         tasks.append(asyncio.create_task(discovery_loop(discovery, settings, shutdown)))
         tasks.append(asyncio.create_task(copy_loop(copy_agent, settings, shutdown)))
         tasks.append(asyncio.create_task(audit_loop(audit, settings, shutdown)))
-
-        if settings.copy_web_enabled:
-            from web.server import build_app
-
-            app = build_app(db, copy_agent, mark_to_market)
-            tasks.append(
-                asyncio.create_task(
-                    web_server_task(app, settings.copy_web_host, settings.copy_web_port, shutdown)
-                )
-            )
-            log.info(
-                "Copy-trader web UI started",
-                url=f"http://{settings.copy_web_host}:{settings.copy_web_port}/profiles",
-            )
 
     log.info("Loops running", count=len(tasks))
 

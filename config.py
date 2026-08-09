@@ -100,9 +100,9 @@ class Settings(BaseSettings):
     leaderboard_keep_n: int = 10
 
     # Web UI
-    copy_web_enabled: bool = False
-    copy_web_host: str = "127.0.0.1"
-    copy_web_port: int = 8765
+    copy_web_enabled: bool = True
+    copy_web_host: str = "0.0.0.0"
+    copy_web_port: int = 8000
 
     # OAuth (web UI login)
     oauth_session_secret: str = ""

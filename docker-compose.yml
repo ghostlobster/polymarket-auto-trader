@@ -1,0 +1,20 @@
+services:
+  trader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: polymarket-auto-trader
+    ports:
+      - "8000:8000"
+    environment:
+      - DRY_RUN=${DRY_RUN:-true}
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/polymarket.db
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - WEB_HOST=0.0.0.0
+      - WEB_PORT=8000
+    volumes:
+      - trader_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  trader_data:
