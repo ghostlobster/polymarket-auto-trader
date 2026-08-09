@@ -31,9 +31,11 @@ class BaseAgent:
         system_prompt: str,
         max_tokens: int = 4096,
         max_tool_rounds: int = 10,
+        fallback_models: list[str] | None = None,
     ):
         self.name = name
         self.model = model
+        self.fallback_models = fallback_models or []
         self.tools = tools
         self.handlers = handlers
         self.system_prompt = system_prompt
@@ -45,7 +47,7 @@ class BaseAgent:
         """
         Run a single agent turn with full tool-use loop.
         Returns the final text response.
-        Uses ephemeral prompt caching on the system prompt.
+        Uses ephemeral prompt caching on the system prompt and supports fallback models.
         """
         messages: list[dict] = [{"role": "user", "content": user_message}]
         if context:
@@ -60,16 +62,30 @@ class BaseAgent:
             }
         ]
 
-        log.info("Agent starting", agent=self.name, model=self.model)
+        candidate_models = [self.model] + [m for m in self.fallback_models if m != self.model]
+        log.info("Agent starting", agent=self.name, primary_model=self.model, candidates=candidate_models)
 
+        last_error = None
         for round_num in range(self.max_tool_rounds):
-            response = await self._client.messages.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                system=system,  # type: ignore[arg-type]
-                tools=self.tools or [],  # type: ignore[arg-type]
-                messages=messages,  # type: ignore[arg-type]
-            )
+            response = None
+            for model_name in candidate_models:
+                try:
+                    response = await self._client.messages.create(
+                        model=model_name,
+                        max_tokens=self.max_tokens,
+                        system=system,  # type: ignore[arg-type]
+                        tools=self.tools or [],  # type: ignore[arg-type]
+                        messages=messages,  # type: ignore[arg-type]
+                    )
+                    break
+                except Exception as exc:
+                    last_error = exc
+                    log.warning("Model call failed; trying fallback", agent=self.name, model=model_name, error=str(exc))
+
+            if response is None:
+                if last_error:
+                    raise last_error
+                raise RuntimeError("No model candidates succeeded")
 
             # Accumulate assistant message
             messages.append({"role": "assistant", "content": response.content})
