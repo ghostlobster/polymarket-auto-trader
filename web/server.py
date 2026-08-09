@@ -254,7 +254,8 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
     ):
         wallet = wallet.lower()
         form = await request.form()
-        preset = (form.get("preset") or "").strip()
+        val = form.get("preset")
+        preset = (val if isinstance(val, str) else "").strip()
         if preset not in PRESETS:
             raise HTTPException(400, f"unknown preset: {preset}")
         await db.set_trader_preset(wallet, preset)
