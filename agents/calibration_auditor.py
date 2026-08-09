@@ -13,7 +13,7 @@ compound. Pure async, no LLM in the path.
 """
 
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 
 import structlog
 
@@ -146,7 +146,7 @@ class CalibrationAuditor:
 
         return {
             "resolved_outcome": outcome,
-            "resolved_at": raw.get("end_date_iso") or datetime.utcnow().isoformat(),
+            "resolved_at": raw.get("end_date_iso") or datetime.now(timezone.utc).isoformat(),
             "payout_token_id": payout_token,
             "source": "clob",
         }

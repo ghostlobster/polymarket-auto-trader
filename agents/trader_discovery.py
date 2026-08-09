@@ -14,7 +14,7 @@ without disturbing user-set status or preset.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import structlog
 
@@ -164,9 +164,9 @@ class TraderDiscoveryAgent(BaseAgent):
                 total_volume_usdc=cand["total_volume"],
                 resolution_sniper_frac=0.0,  # populated by deeper analysis later
                 last_seen_ts=existing.last_seen_ts if existing else 0,
-                last_evaluated_at=datetime.utcnow(),
+                last_evaluated_at=datetime.now(timezone.utc),
                 notes=f"{r.get('verdict', '')}: {r.get('reason', '')}",
-                created_at=existing.created_at if existing else datetime.utcnow(),
+                created_at=existing.created_at if existing else datetime.now(timezone.utc),
             )
             await self._db.upsert_tracked_trader(tt)
             persisted.append(tt)

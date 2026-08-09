@@ -12,7 +12,7 @@ gate is deterministic.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import structlog
@@ -95,7 +95,7 @@ class OrderExecutorAgent(BaseAgent):
                     "fill_vwap": None,
                     "quoted_slippage": slip,
                     "exit_reason": "slippage_budget_breach",
-                    "recorded_at": datetime.utcnow().isoformat(),
+                    "recorded_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
             return None
@@ -136,7 +136,7 @@ class OrderExecutorAgent(BaseAgent):
             log.error("Order placement failed", error=str(exc))
             return None
 
-        placed.placed_at = placed.placed_at or datetime.utcnow()
+        placed.placed_at = placed.placed_at or datetime.now(timezone.utc)
         if not placed.id:
             placed.id = str(uuid4())
         if placed.status not in (OrderStatus.OPEN, OrderStatus.FILLED, OrderStatus.PENDING):
@@ -152,7 +152,7 @@ class OrderExecutorAgent(BaseAgent):
                 "fill_vwap": placed.fill_price or placed.price,
                 "quoted_slippage": slip,
                 "exit_reason": "",
-                "recorded_at": datetime.utcnow().isoformat(),
+                "recorded_at": datetime.now(timezone.utc).isoformat(),
             }
         )
         return placed

@@ -5,7 +5,7 @@ CopyExecutor: dispatches a copy decision to live (PolymarketClient) or paper
 Returns (order_id, mode) or ("", reason) on skip / failure.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import structlog
 
@@ -115,7 +115,7 @@ class CopyExecutor:
             except Exception as exc:
                 log.error("Live copy order failed", wallet=trader.wallet, error=str(exc))
                 return "", "live"
-            order.placed_at = order.placed_at or datetime.utcnow()
+            order.placed_at = order.placed_at or datetime.now(timezone.utc)
             await self._db.save_order(order)
             return order.id, "live"
 

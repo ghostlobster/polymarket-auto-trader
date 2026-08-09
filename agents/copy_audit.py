@@ -14,7 +14,7 @@ COPY_AUDIT_MISS_RATE_DEMOTE, the trader is moved one stage back
 (live -> paper, paper -> shadow). Never auto-promotes.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import structlog
 
@@ -38,7 +38,7 @@ class CopyAuditAgent:
         traders = await self._db.get_active_tracked_traders()
         summary = {"traders": len(traders), "alerts": 0, "demoted": 0}
         cutoff = (
-            datetime.utcnow() - timedelta(seconds=self._settings.copy_audit_window_secs)
+            datetime.now(timezone.utc) - timedelta(seconds=self._settings.copy_audit_window_secs)
         ).isoformat()
 
         for t in traders:

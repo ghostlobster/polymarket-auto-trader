@@ -4,7 +4,7 @@ All prices are normalised to 0.0–1.0 internally (Polymarket uses 0–1 nativel
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 
 import structlog
@@ -173,7 +173,7 @@ class PolymarketClient:
             size_usdc=size_usdc,
             price=price,
             order_type=OT.LIMIT,
-            placed_at=datetime.utcnow(),
+            placed_at=datetime.now(timezone.utc),
         )
         try:
             clob_side = BUY if side == OrderSide.BUY else SELL
@@ -215,7 +215,7 @@ class PolymarketClient:
             size_usdc=size_usdc,
             price=0.0,
             order_type=OT.MARKET,
-            placed_at=datetime.utcnow(),
+            placed_at=datetime.now(timezone.utc),
         )
         try:
             clob_side = BUY if side == OrderSide.BUY else SELL

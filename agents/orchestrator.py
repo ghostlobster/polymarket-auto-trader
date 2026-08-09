@@ -10,7 +10,7 @@ applied shrinkage so the calibration auditor can later score each component.
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 import structlog
@@ -62,7 +62,7 @@ class OrchestratorAgent:
 
     async def run_cycle(self) -> dict:
         """Execute one full trading cycle."""
-        cycle_start = datetime.utcnow()
+        cycle_start = datetime.now(timezone.utc)
         log.info(
             "Trading cycle started",
             timestamp=cycle_start.isoformat(),
@@ -232,7 +232,7 @@ class OrchestratorAgent:
                 log.error("Error processing opportunity", question=question[:60], error=str(exc))
                 summary["errors"].append(f"{question[:40]}: {exc}")
 
-        summary["completed_at"] = datetime.utcnow().isoformat()
+        summary["completed_at"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "Trading cycle complete",
             **{k: v for k, v in summary.items() if k != "errors"},

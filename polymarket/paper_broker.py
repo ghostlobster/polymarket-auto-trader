@@ -9,7 +9,7 @@ Fills are simulated by walking the live OrderBook returned by the wrapped
 `paper_positions` tables (separate from live `positions` / `orders`).
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import structlog
@@ -164,7 +164,7 @@ class PaperBroker:
             size_usdc=spent_usdc,
             price=(spent_usdc / filled_shares) if filled_shares > 0 else 0.0,
             order_type=order_type,
-            placed_at=datetime.utcnow(),
+            placed_at=datetime.now(timezone.utc),
             leader_tx_hash=leader_tx_hash,
         )
 
@@ -176,7 +176,7 @@ class PaperBroker:
 
         order.status = "FILLED"
         order.fill_price = order.price
-        order.filled_at = datetime.utcnow()
+        order.filled_at = datetime.now(timezone.utc)
         await self._db.save_paper_order(order)
 
         await self._update_paper_position(
@@ -209,7 +209,7 @@ class PaperBroker:
                     size=shares,
                     avg_price=price,
                     current_price=price,
-                    opened_at=datetime.utcnow(),
+                    opened_at=datetime.now(timezone.utc),
                 )
             else:
                 new_size = existing.size + shares
@@ -237,7 +237,7 @@ class PaperBroker:
         existing.current_price = price
         if existing.size <= 1e-9:
             existing.size = 0.0
-            existing.closed_at = datetime.utcnow()
+            existing.closed_at = datetime.now(timezone.utc)
             existing.unrealized_pnl = 0.0
         else:
             existing.update_pnl()

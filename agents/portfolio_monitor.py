@@ -194,7 +194,7 @@ class PortfolioMonitorAgent(BaseAgent):
             open_positions=positions,
             realized_pnl=report.get("total_realized_pnl", 0),
             unrealized_pnl=report.get("total_unrealized_pnl", 0),
-            snapshot_at=datetime.utcnow(),
+            snapshot_at=datetime.now(timezone.utc),
         )
         await self._db.save_pnl_snapshot(snapshot)
         return snapshot
@@ -240,7 +240,7 @@ class PortfolioMonitorAgent(BaseAgent):
                     "drift_30m": None,
                     "drift_120m": None,
                     "exit_reason": reason,
-                    "recorded_at": datetime.utcnow().isoformat(),
+                    "recorded_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
             log.info("Position exited", market=pos.market_id, reason=reason, size=notional)

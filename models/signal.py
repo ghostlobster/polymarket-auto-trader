@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from uuid import uuid4
 
@@ -26,7 +26,7 @@ class Signal(BaseModel):
     rationale: str
     confidence: float  # 0-1
     research_summary: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # Provenance — 'thesis' for the original research pipeline,
     # 'copy' for signals produced by following another trader.
     source: str = "thesis"

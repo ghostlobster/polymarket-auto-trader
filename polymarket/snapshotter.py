@@ -11,7 +11,7 @@ Pure async, no LLM. Failure on a single market is logged and skipped — one
 flaky token shouldn't kill the whole loop.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import structlog
 
@@ -55,7 +55,7 @@ def summarize_orderbook(book: OrderBook, condition_id: str) -> dict | None:
     return {
         "condition_id": condition_id,
         "token_id": book.token_id,
-        "ts": datetime.utcnow().isoformat(),
+        "ts": datetime.now(timezone.utc).isoformat(),
         "best_bid": round(best_bid, 4),
         "best_ask": round(best_ask, 4),
         "mid": round(mid, 4),
