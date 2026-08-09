@@ -1,111 +1,267 @@
 {% extends "_base.html" %}
-{% block title %}{{ trader.wallet[:14] }}…{% endblock %}
+{% block title %}Trader {{ trader.wallet[:10] }}… — Polymarket Auto-Trader{% endblock %}
 {% block body %}
-<h1>
-  Trader <code>{{ trader.wallet }}</code>
-  <span class="pill {{ trader.status }}">{{ trader.status }}</span>
-</h1>
-<p class="updated">Performance refreshed at {{ perf.last_updated.isoformat() if perf.last_updated else "" }} (mode={{ perf.mode }}).</p>
 
-<h2>Stats</h2>
-<table>
-  <tr><th>Score</th>            <td>{{ "%.0f"|format(trader.score) }} / 100</td></tr>
-  <tr><th>Sample size</th>      <td>{{ trader.sample_size }} trades on leaderboard</td></tr>
-  <tr><th>Weeks profitable</th> <td>{{ "%.0f"|format(trader.weeks_profitable_frac * 100) }}%</td></tr>
-  <tr><th>Volume</th>           <td>${{ "%.0f"|format(trader.total_volume_usdc) }}</td></tr>
-  <tr><th>Notes</th>            <td>{{ trader.notes }}</td></tr>
-  <tr><th>Trades observed</th>  <td>{{ perf.trades_observed }}</td></tr>
-  <tr><th>Trades copied</th>    <td>{{ perf.trades_copied }}</td></tr>
-  <tr><th>Copy hit rate</th>    <td>{{ "%.1f"|format(perf.copy_hit_rate * 100) }}%</td></tr>
-  <tr><th>Audit miss rate</th>  <td class="{{ 'alert' if perf.audit_miss_rate >= 0.1 else '' }}">
-                                  {{ "%.1f"|format(perf.audit_miss_rate * 100) }}%</td></tr>
-  <tr><th>Realized PnL</th>     <td class="{{ 'pos' if perf.realized_pnl > 0 else ('neg' if perf.realized_pnl < 0 else '') }}">
-                                  ${{ "%+.2f"|format(perf.realized_pnl) }}</td></tr>
-  <tr><th>Unrealized PnL</th>   <td class="{{ 'pos' if perf.unrealized_pnl > 0 else ('neg' if perf.unrealized_pnl < 0 else '') }}">
-                                  ${{ "%+.2f"|format(perf.unrealized_pnl) }}</td></tr>
-  {% if backtest %}
-  <tr><th>Backtest realized</th><td>${{ "%+.2f"|format(backtest.realized_pnl) }}
-                                    ({{ backtest.trades_copied }} trades)</td></tr>
+<div style="margin-bottom: 1.5rem;">
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+    <div>
+      <h1>
+        <i class="fa-solid fa-user-gear" style="color: var(--accent-purple);"></i>
+        Trader <code>{{ trader.wallet }}</code>
+        <span class="pill {{ trader.status }}" id="status-pill">{{ trader.status }}</span>
+      </h1>
+      <p class="subtitle">
+        Last performance update: <span class="muted">{{ perf.last_updated.isoformat() if perf.last_updated else "Never" }}</span> (Mode: <code>{{ perf.mode }}</code>)
+      </p>
+    </div>
+
+    <!-- Quick Action Controls -->
+    <div style="display: flex; gap: 0.75rem; align-items: center; background: var(--bg-card); padding: 0.75rem 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+      <form id="preset-form" class="inline" style="display: flex; gap: 0.5rem; align-items: center;">
+        <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Preset:</label>
+        <select name="preset" id="preset-select" onchange="updatePreset('{{ trader.wallet }}')">
+          {% for p in presets %}
+          <option value="{{ p }}" {% if p == trader.preset %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </form>
+
+      {% if trader.status != 'disabled' %}
+      <button onclick="promoteTrader('{{ trader.wallet }}')" class="btn btn-primary" {% if not promotable %}disabled title="{{ promote_reason }}" style="opacity: 0.5; cursor: not-allowed;"{% endif %}>
+        <i class="fa-solid fa-arrow-up-right-dots"></i> Promote → {{ next_status }}
+      </button>
+      <button onclick="disableTrader('{{ trader.wallet }}')" class="btn btn-danger">
+        <i class="fa-solid fa-ban"></i> Disable
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not promotable and trader.status != 'disabled' %}
+    <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-sm); padding: 0.6rem 1rem; color: #fbbf24; font-size: 0.85rem; margin-top: 0.75rem;">
+      <i class="fa-solid fa-triangle-exclamation"></i> <strong>Promotion Blocked:</strong> {{ promote_reason }}
+    </div>
   {% endif %}
-</table>
+</div>
 
-<h2>Controls</h2>
-<form class="inline" method="post" action="/profiles/{{ trader.wallet }}/preset">
-  <label>Preset:
-    <select name="preset">
-      {% for p in presets %}
-      <option value="{{ p }}" {% if p == trader.preset %}selected{% endif %}>{{ p }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <button type="submit">Save preset</button>
-</form>
-&nbsp;
-<form class="inline" method="post" action="/profiles/{{ trader.wallet }}/promote">
-  <button type="submit" {% if not promotable %}disabled title="{{ promote_reason }}"{% endif %}>
-    Promote → {{ next_status }}
-  </button>
-</form>
-&nbsp;
-<form class="inline" method="post" action="/profiles/{{ trader.wallet }}/disable">
-  <button type="submit">Disable</button>
-</form>
-{% if not promotable and trader.status != 'disabled' %}
-  <p class="muted">Promotion blocked: {{ promote_reason }}</p>
-{% endif %}
+<!-- Key Performance Metrics Grid -->
+<div class="card-grid">
+  <div class="card">
+    <div class="stat-label">Discovery Score</div>
+    <div class="stat-value">{{ "%.0f"|format(trader.score) }} <span style="font-size: 0.9rem; color: var(--text-dim);">/ 100</span></div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Observed / Copied</div>
+    <div class="stat-value">{{ perf.trades_observed }} <span style="font-size: 0.9rem; color: var(--text-dim);">/ {{ perf.trades_copied }}</span></div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Copy Hit Rate</div>
+    <div class="stat-value" style="color: var(--accent-emerald);">{{ "%.1f"|format(perf.copy_hit_rate * 100) }}%</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Audit Miss Rate</div>
+    <div class="stat-value" style="color: {{ 'var(--accent-rose)' if perf.audit_miss_rate >= 0.1 else 'var(--text-main)' }};">
+      {{ "%.1f"|format(perf.audit_miss_rate * 100) }}%
+    </div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Realized PnL</div>
+    <div class="stat-value {{ 'pos' if perf.realized_pnl > 0 else ('neg' if perf.realized_pnl < 0 else '') }}">
+      ${{ "%+.2f"|format(perf.realized_pnl) }}
+    </div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Unrealized PnL</div>
+    <div class="stat-value {{ 'pos' if perf.unrealized_pnl > 0 else ('neg' if perf.unrealized_pnl < 0 else '') }}">
+      ${{ "%+.2f"|format(perf.unrealized_pnl) }}
+    </div>
+  </div>
+</div>
 
-<h2>Recent leader trades and copies</h2>
-<table>
-  <thead>
-    <tr>
-      <th>When</th><th>Side</th><th>Outcome</th><th>Leader $</th><th>Leader px</th>
-      <th>Copy mode</th><th>Copy order</th><th>Skip / status</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for lt in leader_trades %}
-    {% set order = order_by_tx.get(lt.tx_hash) %}
-    <tr>
-      <td>{{ lt.observed_at.isoformat() }}</td>
-      <td>{{ lt.side }}</td>
-      <td>{{ lt.outcome }}</td>
-      <td>${{ "%.2f"|format(lt.size_usdc) }}</td>
-      <td>{{ "%.4f"|format(lt.price) }}</td>
-      <td>{{ lt.copy_mode or "-" }}</td>
-      <td>
-        {% if order %}
-          <code>{{ order.id[:14] }}…</code>
-          ({{ order.side }} ${{ "%.2f"|format(order.size_usdc) }} @ {{ "%.4f"|format(order.price) }})
-        {% elif lt.copy_order_id %}
-          <code>{{ lt.copy_order_id[:14] }}…</code>
-        {% else %}
-          —
-        {% endif %}
-      </td>
-      <td class="{% if lt.skip_reason %}skip{% endif %}">
-        {% if lt.skip_reason %}skip: {{ lt.skip_reason }}
-        {% elif lt.copy_order_id %}OK
-        {% elif lt.expected_copy %}<span class="alert">missed</span>
-        {% else %}no copy expected{% endif %}
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<!-- Interactive Chart Section -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h3 style="font-size: 1.1rem; font-weight: 600;"><i class="fa-solid fa-chart-area" style="color: var(--accent-cyan);"></i> Copy Trade Notional & Execution History</h3>
+  </div>
+  <div style="height: 260px; position: relative;">
+    <canvas id="pnlChart"></canvas>
+  </div>
+</div>
+
+<h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;"><i class="fa-solid fa-list-check"></i> Recent Leader Trades & Copy Fills</h2>
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>When</th>
+        <th>Side</th>
+        <th>Outcome</th>
+        <th>Leader Notional</th>
+        <th>Leader Price</th>
+        <th>Copy Mode</th>
+        <th>Copy Order</th>
+        <th>Status / Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for lt in leader_trades %}
+      {% set order = order_by_tx.get(lt.tx_hash) %}
+      <tr>
+        <td><span class="muted" style="font-size: 0.8rem;">{{ lt.observed_at.isoformat()[:19].replace('T', ' ') }}</span></td>
+        <td>
+          <span class="pill" style="background: {{ 'rgba(16, 185, 129, 0.15)' if lt.side == 'BUY' else 'rgba(244, 63, 94, 0.15)' }}; color: {{ '#34d399' if lt.side == 'BUY' else '#f87171' }};">
+            {{ lt.side }}
+          </span>
+        </td>
+        <td><code>{{ lt.outcome }}</code></td>
+        <td>${{ "%.2f"|format(lt.size_usdc) }}</td>
+        <td>{{ "%.4f"|format(lt.price) }}</td>
+        <td><code>{{ lt.copy_mode or "-" }}</code></td>
+        <td>
+          {% if order %}
+            <code>{{ order.id[:10] }}…</code> (${{ "%.2f"|format(order.size_usdc) }} @ {{ "%.4f"|format(order.price) }})
+          {% elif lt.copy_order_id %}
+            <code>{{ lt.copy_order_id[:10] }}…</code>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>
+          {% if lt.skip_reason %}
+            <span style="color: var(--accent-amber); font-size: 0.85rem;"><i class="fa-solid fa-forward"></i> skip: {{ lt.skip_reason }}</span>
+          {% elif lt.copy_order_id %}
+            <span class="pos"><i class="fa-solid fa-check"></i> Executed</span>
+          {% elif lt.expected_copy %}
+            <span class="neg"><i class="fa-solid fa-xmark"></i> Missed</span>
+          {% else %}
+            <span class="muted">No copy expected</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 
 {% if alerts %}
-<h2>Audit alerts</h2>
-<table>
-  <thead><tr><th>When</th><th>tx</th><th>Reason</th></tr></thead>
-  <tbody>
-    {% for a in alerts %}
-    <tr>
-      <td>{{ a.created_at }}</td>
-      <td><code>{{ a.leader_tx_hash[:18] }}…</code></td>
-      <td class="alert">{{ a.reason }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; color: var(--accent-rose);"><i class="fa-solid fa-triangle-exclamation"></i> Audit Alerts</h2>
+<div class="table-container">
+  <table>
+    <thead>
+      <tr><th>Timestamp</th><th>Tx Hash</th><th>Alert Reason</th></tr>
+    </thead>
+    <tbody>
+      {% for a in alerts %}
+      <tr>
+        <td><span class="muted">{{ a.created_at }}</span></td>
+        <td><code>{{ a.leader_tx_hash[:18] }}…</code></td>
+        <td class="neg">{{ a.reason }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
+
+<script>
+  // AJAX Controls
+  async function updatePreset(wallet) {
+    const preset = document.getElementById('preset-select').value;
+    const formData = new FormData();
+    formData.append('preset', preset);
+    try {
+      const res = await fetch(`/profiles/${wallet}/preset`, { method: 'POST', body: formData });
+      if (res.ok) {
+        showToast(`Preset updated to '${preset}'`, 'success');
+      } else {
+        showToast('Failed to update preset', 'error');
+      }
+    } catch(e) {
+      showToast('Error updating preset', 'error');
+    }
+  }
+
+  async function promoteTrader(wallet) {
+    try {
+      const res = await fetch(`/profiles/${wallet}/promote`, { method: 'POST' });
+      if (res.ok) {
+        showToast('Trader promoted successfully!', 'success');
+        setTimeout(() => location.reload(), 800);
+      } else {
+        const err = await res.json();
+        showToast(`Promotion failed: ${err.detail || 'Blocked'}`, 'error');
+      }
+    } catch(e) {
+      showToast('Error during promotion', 'error');
+    }
+  }
+
+  async function disableTrader(wallet) {
+    if (!confirm('Are you sure you want to disable copy-trading for this wallet?')) return;
+    try {
+      const res = await fetch(`/profiles/${wallet}/disable`, { method: 'POST' });
+      if (res.ok) {
+        showToast('Trader disabled', 'info');
+        setTimeout(() => location.reload(), 800);
+      } else {
+        showToast('Failed to disable trader', 'error');
+      }
+    } catch(e) {
+      showToast('Error disabling trader', 'error');
+    }
+  }
+
+  // Chart Rendering
+  document.addEventListener('DOMContentLoaded', () => {
+    const ctx = document.getElementById('pnlChart').getContext('2d');
+    const trades = [
+      {% for lt in leader_trades|reverse %}
+        { t: "{{ lt.observed_at.isoformat()[:10] }}", size: {{ lt.size_usdc }}, price: {{ lt.price }} },
+      {% endfor %}
+    ];
+
+    const labels = trades.map(t => t.t);
+    const notionalData = trades.map(t => t.size);
+    const priceData = trades.map(t => t.price * 100);
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels.length ? labels : ['No Trades'],
+        datasets: [
+          {
+            label: 'Leader Notional ($)',
+            data: notionalData.length ? notionalData : [0],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.3,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Leader Price (¢)',
+            data: priceData.length ? priceData : [0],
+            borderColor: '#10b981',
+            borderDash: [4, 4],
+            tension: 0.2,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af' } },
+          y: { position: 'left', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af' } },
+          y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#10b981' } }
+        },
+        plugins: {
+          legend: { labels: { color: '#f3f4f6' } }
+        }
+      }
+    });
+  });
+</script>
+
 {% endblock %}

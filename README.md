@@ -118,6 +118,14 @@ COPY_ENABLED=true COPY_WEB_ENABLED=true python main.py
 The web UI lists every tracked trader with PnL, hit rate, and audit alerts.
 Reports refresh on every page load (throttled to 30s) so you don't need a cron.
 
+### Operational Monitoring & Health
+
+The web server exposes endpoints for operational probes and telemetry:
+
+- `GET /healthz` — System readiness check (database status, timestamp, active trader count).
+- `GET /metrics` — System metrics (breakdown of live, paper, shadow traders, and edge mode).
+- `GET /calibration` — Interactive Reliability Diagram (Calibration Curve) deciles and Brier score audit.
+
 Backtest a single wallet against historical data:
 
 ```bash

@@ -156,6 +156,27 @@ async def web_server_task(app, host: str, port: int, shutdown):
         await server_task
 
 
+async def supervised_task(name: str, coro_fn, *args):
+    """Supervisor wrapper that catches unhandled crashes in background loops and auto-restarts."""
+    failures = 0
+    while True:
+        try:
+            await coro_fn(*args)
+            break
+        except asyncio.CancelledError:
+            log.info("Supervised task cancelled", task=name)
+            break
+        except Exception as exc:
+            failures += 1
+            log.error(
+                "Supervised task crashed, auto-restarting",
+                task=name,
+                failure_count=failures,
+                error=str(exc),
+            )
+            await asyncio.sleep(min(30.0, 2.0 ** min(failures, 5)))
+
+
 async def main() -> None:
     settings = Settings()
     configure_logging(settings.log_level)
@@ -191,9 +212,15 @@ async def main() -> None:
     signal_module.signal(signal_module.SIGTERM, _handle_signal)
 
     tasks = [
-        asyncio.create_task(thesis_loop(orchestrator, settings, shutdown)),
-        asyncio.create_task(calibration_loop(auditor, settings, shutdown)),
-        asyncio.create_task(snapshot_loop(snapshotter, settings, shutdown)),
+        asyncio.create_task(
+            supervised_task("thesis", thesis_loop, orchestrator, settings, shutdown)
+        ),
+        asyncio.create_task(
+            supervised_task("calibration", calibration_loop, auditor, settings, shutdown)
+        ),
+        asyncio.create_task(
+            supervised_task("snapshotter", snapshot_loop, snapshotter, settings, shutdown)
+        ),
     ]
 
     from web.server import build_app
@@ -201,7 +228,14 @@ async def main() -> None:
     web_app = build_app(db)
     tasks.append(
         asyncio.create_task(
-            web_server_task(web_app, settings.copy_web_host, settings.copy_web_port, shutdown)
+            supervised_task(
+                "web_server",
+                web_server_task,
+                web_app,
+                settings.copy_web_host,
+                settings.copy_web_port,
+                shutdown,
+            )
         )
     )
     log.info(
@@ -224,9 +258,21 @@ async def main() -> None:
 
         audit = CopyAuditAgent(settings, db, mark_to_market=mark_to_market)
 
-        tasks.append(asyncio.create_task(discovery_loop(discovery, settings, shutdown)))
-        tasks.append(asyncio.create_task(copy_loop(copy_agent, settings, shutdown)))
-        tasks.append(asyncio.create_task(audit_loop(audit, settings, shutdown)))
+        tasks.append(
+            asyncio.create_task(
+                supervised_task("discovery", discovery_loop, discovery, settings, shutdown)
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                supervised_task("copy_trader", copy_loop, copy_agent, settings, shutdown)
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                supervised_task("copy_audit", audit_loop, audit, settings, shutdown)
+            )
+        )
 
     log.info("Loops running", count=len(tasks))
 

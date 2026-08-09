@@ -28,6 +28,7 @@ def kelly_size(
     side: str,
     bankroll: float,
     kelly_fraction: float,
+    calibration_factor: float = 1.0,
 ) -> KellyResult:
     """
     Compute fractional Kelly size for a binary bet on a Polymarket outcome.
@@ -39,6 +40,7 @@ def kelly_size(
       side          — "YES" or "NO".
       bankroll      — available USDC to allocate.
       kelly_fraction— fractional-Kelly multiplier from settings (e.g. 0.25).
+      calibration_factor — empirical calibration multiplier in [floor, 1.0].
 
     The full Kelly fraction is unbounded above but capped at 1.0 to avoid pathological
     sizes from near-zero opposing prices.
@@ -58,12 +60,13 @@ def kelly_size(
     else:
         return KellyResult(0.0, 0.0, 0.0, f"unknown_side:{side}")
 
+    calib = max(0.0, min(1.0, float(calibration_factor)))
     kelly_full = max(0.0, min(1.0, kelly_full))
-    applied = kelly_full * max(0.0, float(kelly_fraction))
+    applied = kelly_full * max(0.0, float(kelly_fraction)) * calib
     size = max(0.0, applied * max(0.0, float(bankroll)))
     return KellyResult(
         kelly_full=round(kelly_full, 6),
         kelly_fraction_applied=round(applied, 6),
         size_usdc=round(size, 4),
-        rationale=f"kelly_full={kelly_full:.4f} × frac={kelly_fraction:.2f} × bankroll={bankroll:.2f}",
+        rationale=f"kelly_full={kelly_full:.4f} × frac={kelly_fraction:.2f} × calib={calib:.2f} × bankroll={bankroll:.2f}",
     )

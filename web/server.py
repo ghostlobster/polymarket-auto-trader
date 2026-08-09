@@ -102,6 +102,34 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
     async def root():
         return RedirectResponse(url="/profiles")
 
+    @app.get("/healthz")
+    async def healthz():
+        """Operational health check endpoint for monitoring/readiness probes."""
+        from datetime import datetime, timezone
+
+        try:
+            traders = await db.get_tracked_traders()
+            return {
+                "status": "ok",
+                "database": "connected",
+                "tracked_traders_count": len(traders),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"database error: {exc}")
+
+    @app.get("/metrics")
+    async def metrics():
+        """System performance and trader state count metrics."""
+        traders = await db.get_tracked_traders()
+        return {
+            "traders_total": len(traders),
+            "traders_live": sum(1 for t in traders if t.status == "live"),
+            "traders_paper": sum(1 for t in traders if t.status == "paper"),
+            "traders_shadow": sum(1 for t in traders if t.status == "shadow"),
+            "edge_mode": settings.edge_mode,
+        }
+
     @app.get("/calibration", response_class=HTMLResponse)
     async def calibration_view(
         request: Request,

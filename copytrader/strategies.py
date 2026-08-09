@@ -158,17 +158,26 @@ def apply_preset(
             expected_copy=False,
         )
 
-    # Slippage check (entries only — sells reduce position size and don't suffer adverse selection here)
+    # Slippage check
     leader_price = float(leader_event.get("price", 0) or 0)
     side = (leader_event.get("side") or "BUY").upper()
-    if book is not None and leader_price > 0 and side == "BUY":
-        ref = book.best_ask or book.mid or leader_price
-        if ref > leader_price * (1 + preset.max_slippage):
-            return CopyDecision(
-                skip=True,
-                reason=f"slippage:{ref:.4f}>{leader_price:.4f}*(1+{preset.max_slippage})",
-                expected_copy=True,  # we wanted to copy, slippage forced skip — counts as "expected miss"
-            )
+    if book is not None and leader_price > 0:
+        if side == "BUY":
+            ref = book.best_ask or book.mid or leader_price
+            if ref > leader_price * (1 + preset.max_slippage):
+                return CopyDecision(
+                    skip=True,
+                    reason=f"slippage:{ref:.4f}>{leader_price:.4f}*(1+{preset.max_slippage})",
+                    expected_copy=True,  # we wanted to copy, slippage forced skip — counts as "expected miss"
+                )
+        elif side == "SELL":
+            ref = book.best_bid or book.mid or leader_price
+            if ref < leader_price * (1 - preset.max_slippage):
+                return CopyDecision(
+                    skip=True,
+                    reason=f"sell_slippage:{ref:.4f}<{leader_price:.4f}*(1-{preset.max_slippage})",
+                    expected_copy=True,
+                )
 
     if preset.order_type == "market":
         return CopyDecision(

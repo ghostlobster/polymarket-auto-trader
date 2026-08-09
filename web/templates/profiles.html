@@ -1,56 +1,117 @@
 {% extends "_base.html" %}
-{% block title %}Tracked Traders{% endblock %}
+{% block title %}Tracked Traders — Polymarket Auto-Trader{% endblock %}
 {% block body %}
-<h1>Tracked traders</h1>
-<p class="muted">
-  Each row's performance is recomputed on page load (throttled to once per 30s).
-  Click a wallet to inspect their copy history. Promotion to <code>live</code>
-  is gated on positive paper PnL and a low audit miss rate.
-</p>
+
+<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1.5rem;">
+  <div>
+    <h1><i class="fa-solid fa-users-viewfinder" style="color: var(--accent-blue);"></i> Tracked traders</h1>
+    <p class="subtitle">
+      Automated copy-trading pipeline active. Profiles refresh on page load (throttled to 30s).
+    </p>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <input type="text" id="trader-search" placeholder="Search wallet or preset..." onkeyup="filterTraders()" style="width: 260px;">
+  </div>
+</div>
 
 {% if not rows %}
-  <p class="muted">No traders tracked yet — discovery hasn't completed its first cycle.</p>
+  <div class="card" style="text-align: center; padding: 3rem;">
+    <i class="fa-solid fa-radar fa-2x" style="color: var(--text-dim); margin-bottom: 1rem;"></i>
+    <p class="muted">No traders tracked yet — discovery loop is running its initial scan cycle.</p>
+  </div>
 {% else %}
-<table>
-  <thead>
-    <tr>
-      <th>Wallet</th>
-      <th>Status</th>
-      <th>Preset</th>
-      <th>Score</th>
-      <th>Sample</th>
-      <th>Observed</th>
-      <th>Copied</th>
-      <th>Hit %</th>
-      <th>Audit miss %</th>
-      <th>Realized PnL</th>
-      <th>Unrealized PnL</th>
-      <th>Updated</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for row in rows %}
-    {% set t = row.trader %}{% set p = row.perf %}
-    <tr>
-      <td><a href="/profiles/{{ t.wallet }}"><code>{{ t.wallet[:14] }}…</code></a></td>
-      <td><span class="pill {{ t.status }}">{{ t.status }}</span></td>
-      <td>{{ t.preset }}</td>
-      <td>{{ "%.0f"|format(t.score) }}</td>
-      <td>{{ t.sample_size }}</td>
-      <td>{{ p.trades_observed }}</td>
-      <td>{{ p.trades_copied }}</td>
-      <td>{{ "%.0f"|format(p.copy_hit_rate * 100) }}</td>
-      <td>{{ "%.1f"|format(p.audit_miss_rate * 100) }}</td>
-      <td class="{{ 'pos' if p.realized_pnl > 0 else ('neg' if p.realized_pnl < 0 else '') }}">
-        {{ "%+.2f"|format(p.realized_pnl) }}
-      </td>
-      <td class="{{ 'pos' if p.unrealized_pnl > 0 else ('neg' if p.unrealized_pnl < 0 else '') }}">
-        {{ "%+.2f"|format(p.unrealized_pnl) }}
-      </td>
-      <td class="updated">{{ p.last_updated.isoformat() if p.last_updated else "" }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+
+<!-- Overview Stats Cards -->
+{% set total_traders = rows|length %}
+{% set live_count = rows|selectattr('trader.status', 'equalto', 'live')|list|length %}
+{% set paper_count = rows|selectattr('trader.status', 'equalto', 'paper')|list|length %}
+{% set shadow_count = rows|selectattr('trader.status', 'equalto', 'shadow')|list|length %}
+
+<div class="card-grid">
+  <div class="card">
+    <div class="stat-label"><i class="fa-solid fa-users"></i> Total Tracked</div>
+    <div class="stat-value">{{ total_traders }}</div>
+  </div>
+  <div class="card">
+    <div class="stat-label"><i class="fa-solid fa-bolt" style="color: var(--accent-emerald);"></i> Live Copying</div>
+    <div class="stat-value" style="color: var(--accent-emerald);">{{ live_count }}</div>
+  </div>
+  <div class="card">
+    <div class="stat-label"><i class="fa-solid fa-flask" style="color: var(--accent-amber);"></i> Paper Simulation</div>
+    <div class="stat-value" style="color: var(--accent-amber);">{{ paper_count }}</div>
+  </div>
+  <div class="card">
+    <div class="stat-label"><i class="fa-solid fa-eye" style="color: var(--accent-purple);"></i> Shadow Mode</div>
+    <div class="stat-value" style="color: var(--accent-purple);">{{ shadow_count }}</div>
+  </div>
+</div>
+
+<div class="table-container">
+  <table id="traders-table">
+    <thead>
+      <tr>
+        <th>Wallet</th>
+        <th>Status</th>
+        <th>Preset</th>
+        <th>Score</th>
+        <th>Observed</th>
+        <th>Copied</th>
+        <th>Hit Rate</th>
+        <th>Audit Miss %</th>
+        <th>Realized PnL</th>
+        <th>Unrealized PnL</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+      {% set t = row.trader %}{% set p = row.perf %}
+      <tr class="trader-row" data-search="{{ t.wallet }} {{ t.preset }} {{ t.status }}">
+        <td>
+          <a href="/profiles/{{ t.wallet }}" style="color: var(--accent-blue); text-decoration: none; font-weight: 600;">
+            <code>{{ t.wallet[:10] }}…{{ t.wallet[-4:] }}</code>
+          </a>
+        </td>
+        <td>
+          <span class="pill {{ t.status }}">
+            <i class="fa-solid fa-circle" style="font-size: 0.5rem;"></i> {{ t.status }}
+          </span>
+        </td>
+        <td><code>{{ t.preset }}</code></td>
+        <td><span style="font-weight: 700;">{{ "%.0f"|format(t.score) }}</span> <span class="muted">/100</span></td>
+        <td>{{ p.trades_observed }}</td>
+        <td>{{ p.trades_copied }}</td>
+        <td>{{ "%.0f"|format(p.copy_hit_rate * 100) }}%</td>
+        <td class="{{ 'neg' if p.audit_miss_rate >= 0.1 else 'muted' }}">
+          {{ "%.1f"|format(p.audit_miss_rate * 100) }}%
+        </td>
+        <td class="{{ 'pos' if p.realized_pnl > 0 else ('neg' if p.realized_pnl < 0 else '') }}">
+          ${{ "%+.2f"|format(p.realized_pnl) }}
+        </td>
+        <td class="{{ 'pos' if p.unrealized_pnl > 0 else ('neg' if p.unrealized_pnl < 0 else '') }}">
+          ${{ "%+.2f"|format(p.unrealized_pnl) }}
+        </td>
+        <td>
+          <a href="/profiles/{{ t.wallet }}" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
+            Inspect <i class="fa-solid fa-chevron-right"></i>
+          </a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
+
+<script>
+  function filterTraders() {
+    const q = document.getElementById('trader-search').value.toLowerCase();
+    const rows = document.querySelectorAll('.trader-row');
+    rows.forEach(r => {
+      const text = r.getAttribute('data-search').toLowerCase();
+      r.style.display = text.includes(q) ? '' : 'none';
+    });
+  }
+</script>
+
 {% endblock %}

@@ -36,8 +36,10 @@ class RiskManagerAgent:
         portfolio: PortfolioSnapshot,
         proposed_size_usdc: float | None = None,
     ) -> dict:
-        # 1) Compute size — either Kelly (default) or honor an externally-decided size
-        #    (e.g. copy-trader passes the preset-sized notional, no Kelly involved).
+        # 1) Compute calibration shrinkage factor first
+        shrink_factor = await self._calibration_shrinkage(signal)
+
+        # 2) Compute size — either Kelly (default) or honor an externally-decided size
         if proposed_size_usdc is None:
             kelly = kelly_size(
                 edge=signal.edge,
@@ -45,6 +47,7 @@ class RiskManagerAgent:
                 side=signal.side,
                 bankroll=portfolio.total_usdc or portfolio.available_usdc or 0.0,
                 kelly_fraction=self._settings.kelly_fraction,
+                calibration_factor=shrink_factor,
             )
             raw_size = kelly.size_usdc
             kelly_full = kelly.kelly_full
@@ -54,9 +57,7 @@ class RiskManagerAgent:
             kelly_full = 0.0
             kelly_applied = 0.0
 
-        # 2) Apply calibration shrinkage (if calibration data is available)
-        shrink_factor = await self._calibration_shrinkage(signal)
-        shrunk_size = raw_size * shrink_factor
+        shrunk_size = raw_size
 
         # 3) Compute exposures from open positions
         cluster_exposures, category_exposures, window_exposures = self._exposure_buckets(
@@ -154,10 +155,7 @@ class RiskManagerAgent:
     ) -> tuple[dict[str, float], dict[str, float], dict[str, float]]:
         """
         Build (cluster, category, resolution-day) exposure dicts from open positions.
-        Without per-position cluster metadata we conservatively bucket everything
-        under the signal's own cluster/category — i.e. the cap considers ALL open
-        positions as potentially correlated when we lack information to prove
-        otherwise.
+        Uses position cluster_id/category attributes when present to prevent false cap breaches.
         """
         sig_cluster = (signal.cluster_id or signal.category or "uncategorized").lower()
         sig_category = (signal.category or "other").lower()
@@ -166,6 +164,12 @@ class RiskManagerAgent:
         window: dict[str, float] = {}
         for pos in portfolio.open_positions:
             notional = float(pos.size) * float(pos.avg_price)
-            cluster[sig_cluster] = cluster.get(sig_cluster, 0.0) + notional
-            category[sig_category] = category.get(sig_category, 0.0) + notional
+            pos_cluster = getattr(pos, "cluster_id", "") or getattr(pos, "category", "")
+            pos_category = getattr(pos, "category", "")
+
+            c_key = pos_cluster.lower() if pos_cluster else sig_cluster
+            cat_key = pos_category.lower() if pos_category else sig_category
+
+            cluster[c_key] = cluster.get(c_key, 0.0) + notional
+            category[cat_key] = category.get(cat_key, 0.0) + notional
         return cluster, category, window

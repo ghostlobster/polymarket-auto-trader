@@ -63,7 +63,9 @@ class BaseAgent:
         ]
 
         candidate_models = [self.model] + [m for m in self.fallback_models if m != self.model]
-        log.info("Agent starting", agent=self.name, primary_model=self.model, candidates=candidate_models)
+        log.info(
+            "Agent starting", agent=self.name, primary_model=self.model, candidates=candidate_models
+        )
 
         last_error = None
         for round_num in range(self.max_tool_rounds):
@@ -80,7 +82,12 @@ class BaseAgent:
                     break
                 except Exception as exc:
                     last_error = exc
-                    log.warning("Model call failed; trying fallback", agent=self.name, model=model_name, error=str(exc))
+                    log.warning(
+                        "Model call failed; trying fallback",
+                        agent=self.name,
+                        model=model_name,
+                        error=str(exc),
+                    )
 
             if response is None:
                 if last_error:

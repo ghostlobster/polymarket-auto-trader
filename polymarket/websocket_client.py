@@ -140,7 +140,9 @@ class PolymarketWebSocketClient:
             except (websockets.ConnectionClosed, OSError, Exception) as exc:
                 if not self._running:
                     break
-                log.warning("WebSocket connection dropped, reconnecting", error=str(exc), delay=delay)
+                log.warning(
+                    "WebSocket connection dropped, reconnecting", error=str(exc), delay=delay
+                )
                 await asyncio.sleep(delay)
                 delay = min(delay * 2.0, self.max_reconnect_delay)
 
