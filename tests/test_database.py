@@ -39,7 +39,7 @@ async def test_save_and_retrieve_signal(db):
 
 @pytest.mark.asyncio
 async def test_save_and_retrieve_order(db):
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     order = Order(
         id="order-001",
@@ -49,7 +49,7 @@ async def test_save_and_retrieve_order(db):
         size_usdc=25.0,
         price=0.52,
         status=OrderStatus.OPEN,
-        placed_at=datetime.utcnow(),
+        placed_at=datetime.now(timezone.utc),
     )
     await db.save_order(order)
 
@@ -60,7 +60,7 @@ async def test_save_and_retrieve_order(db):
 
 @pytest.mark.asyncio
 async def test_open_positions(db):
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     pos = Position(
         id="pos-001",
@@ -70,7 +70,7 @@ async def test_open_positions(db):
         size=100,
         avg_price=0.48,
         current_price=0.55,
-        opened_at=datetime.utcnow(),
+        opened_at=datetime.now(timezone.utc),
     )
     await db.save_position(pos)
 
@@ -81,7 +81,7 @@ async def test_open_positions(db):
 
 @pytest.mark.asyncio
 async def test_realized_pnl_sum(db):
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     for i, pnl in enumerate([10.0, -5.0, 20.0]):
         pos = Position(
@@ -92,8 +92,8 @@ async def test_realized_pnl_sum(db):
             size=100,
             avg_price=0.50,
             realized_pnl=pnl,
-            opened_at=datetime.utcnow(),
-            closed_at=datetime.utcnow(),
+            opened_at=datetime.now(timezone.utc),
+            closed_at=datetime.now(timezone.utc),
         )
         await db.save_position(pos)
 

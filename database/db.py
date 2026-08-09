@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import aiosqlite
@@ -149,7 +149,7 @@ class Database:
         await self._conn.execute(
             """INSERT OR REPLACE INTO signal_features (signal_id, features_json, created_at)
                VALUES (?,?,?)""",
-            (signal_id, json.dumps(features, default=str), datetime.utcnow().isoformat()),
+            (signal_id, json.dumps(features, default=str), datetime.now(timezone.utc).isoformat()),
         )
         await self._conn.commit()
 
@@ -258,7 +258,7 @@ class Database:
                 mean_actual,
                 brier,
                 log_loss,
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
             ),
         )
         await self._conn.commit()
@@ -327,7 +327,7 @@ class Database:
                 pm.get("drift_30m"),
                 pm.get("drift_120m"),
                 pm.get("exit_reason", ""),
-                pm.get("recorded_at", datetime.utcnow().isoformat()),
+                pm.get("recorded_at", datetime.now(timezone.utc).isoformat()),
             ),
         )
         await self._conn.commit()
@@ -358,7 +358,7 @@ class Database:
                 manifold_id,
                 kalshi_ticker,
                 metaculus_id,
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
             ),
         )
         await self._conn.commit()
@@ -464,7 +464,7 @@ class Database:
                 len(snapshot.open_positions),
                 snapshot.realized_pnl,
                 snapshot.unrealized_pnl,
-                (snapshot.snapshot_at or datetime.utcnow()).isoformat(),
+                (snapshot.snapshot_at or datetime.now(timezone.utc)).isoformat(),
             ),
         )
         await self._conn.commit()
@@ -511,9 +511,9 @@ class Database:
                 trader.total_volume_usdc,
                 trader.resolution_sniper_frac,
                 trader.last_seen_ts,
-                (trader.last_evaluated_at or datetime.utcnow()).isoformat(),
+                (trader.last_evaluated_at or datetime.now(timezone.utc)).isoformat(),
                 trader.notes,
-                (trader.created_at or datetime.utcnow()).isoformat(),
+                (trader.created_at or datetime.now(timezone.utc)).isoformat(),
             ),
         )
         await self._conn.commit()
@@ -588,7 +588,7 @@ class Database:
                     lt.copy_order_id,
                     lt.copy_mode,
                     lt.skip_reason,
-                    (lt.created_at or datetime.utcnow()).isoformat(),
+                    (lt.created_at or datetime.now(timezone.utc)).isoformat(),
                 ),
             )
             await self._conn.commit()
@@ -774,7 +774,7 @@ class Database:
                 perf.win_count,
                 perf.loss_count,
                 perf.notes,
-                (perf.last_updated or datetime.utcnow()).isoformat(),
+                (perf.last_updated or datetime.now(timezone.utc)).isoformat(),
             ),
         )
         await self._conn.commit()
@@ -804,7 +804,7 @@ class Database:
         await self._conn.execute(
             """INSERT INTO audit_alerts (wallet, leader_tx_hash, reason, created_at)
                VALUES (?,?,?,?)""",
-            (wallet, leader_tx_hash, reason, datetime.utcnow().isoformat()),
+            (wallet, leader_tx_hash, reason, datetime.now(timezone.utc).isoformat()),
         )
         await self._conn.commit()
 
@@ -828,7 +828,7 @@ class Database:
         avatar_url: str | None,
         is_allowed: int,
     ) -> tuple[int, int]:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         async with self._conn.execute(
             """INSERT INTO web_users
                  (provider, provider_id, email, name, avatar_url, is_allowed, created_at, last_login)

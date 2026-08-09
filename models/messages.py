@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -10,6 +10,6 @@ class AgentMessage(BaseModel):
     to_agent: str
     msg_type: str  # "scan_result", "research_result", "signal", "risk_assessment", "order_result", "portfolio_update"
     payload: dict
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     processed: bool = False
     processed_at: datetime | None = None

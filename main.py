@@ -10,7 +10,7 @@ Usage:
 import asyncio
 import contextlib
 import signal as signal_module
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 import structlog
@@ -233,7 +233,7 @@ async def main() -> None:
     log.info("Loops running", count=len(tasks))
 
     await shutdown.wait()
-    log.info("Shutting down", started_at=datetime.utcnow().isoformat())
+    log.info("Shutting down", started_at=datetime.now(timezone.utc).isoformat())
 
     for t in tasks:
         t.cancel()

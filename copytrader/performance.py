@@ -10,7 +10,7 @@ It marks paper positions to live mid prices, recounts trades, and upserts a
 fresh `copy_performance` row.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 import structlog
@@ -44,7 +44,7 @@ async def recompute_for_wallet(
     Throttle: if we recomputed within `throttle_secs`, return the cached row.
     """
     key = (wallet, mode)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     if not force:
         last = _last_recompute.get(key)

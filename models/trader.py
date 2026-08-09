@@ -1,6 +1,6 @@
 """Models for the copy-trading subsystem."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -25,7 +25,7 @@ class TrackedTrader(BaseModel):
     last_seen_ts: int = 0  # unix seconds — high-water mark for activity polling
     last_evaluated_at: datetime | None = None
     notes: str = ""
-    created_at: datetime | None = Field(default_factory=datetime.utcnow)
+    created_at: datetime | None = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class LeaderTrade(BaseModel):
@@ -42,7 +42,7 @@ class LeaderTrade(BaseModel):
     copy_order_id: str = ""
     copy_mode: str = ""  # shadow|paper|live (set after dispatch)
     skip_reason: str = ""
-    created_at: datetime | None = Field(default_factory=datetime.utcnow)
+    created_at: datetime | None = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PaperOrder(BaseModel):
@@ -94,7 +94,7 @@ class CopyPerformance(BaseModel):
     win_count: int = 0
     loss_count: int = 0
     notes: str = ""
-    last_updated: datetime | None = Field(default_factory=datetime.utcnow)
+    last_updated: datetime | None = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def total_pnl(self) -> float:
