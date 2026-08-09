@@ -16,6 +16,8 @@ class Position(BaseModel):
     realized_pnl: float = 0.0
     opened_at: datetime | None = None
     closed_at: datetime | None = None
+    category: str = ""
+    cluster_id: str = ""
 
     def update_pnl(self) -> None:
         self.unrealized_pnl = round((self.current_price - self.avg_price) * self.size, 4)

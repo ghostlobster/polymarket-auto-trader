@@ -1,79 +1,180 @@
 {% extends "_base.html" %}
-{% block title %}Calibration Audit{% endblock %}
+{% block title %}Calibration Audit — Polymarket Auto-Trader{% endblock %}
 {% block body %}
-<h1>Calibration Audit</h1>
-<p class="muted">
-  Each row groups resolved signals by source × category × predicted-probability decile.
-  <code>mean_predicted</code> vs <code>mean_actual</code> tells you whether the system is
-  honest — large gaps indicate over- or under-confidence in that band.
-</p>
+
+<div style="margin-bottom: 1.5rem;">
+  <h1><i class="fa-solid fa-bullseye" style="color: var(--accent-emerald);"></i> Calibration & Reliability Audit</h1>
+  <p class="subtitle">
+    Groups resolved signals by source, category, and predicted-probability decile. Comparing <code>mean_predicted</code> vs <code>mean_actual</code> measures probability honesty and overconfidence bias.
+  </p>
+</div>
 
 {% if not buckets %}
-<p>No resolved signals yet. The calibration auditor populates this view once markets
-   in your signal history settle on the CLOB.</p>
+  <div class="card" style="text-align: center; padding: 3rem; margin-bottom: 2rem;">
+    <i class="fa-solid fa-clock-rotate-left fa-2x" style="color: var(--text-dim); margin-bottom: 1rem;"></i>
+    <p class="muted">No resolved signals available yet. The calibration auditor populates this view once markets in signal history settle on the CLOB.</p>
+  </div>
 {% else %}
-<table>
-  <thead>
-    <tr>
-      <th>Source</th>
-      <th>Category</th>
-      <th>Band</th>
-      <th>N</th>
-      <th>Mean predicted</th>
-      <th>Mean actual</th>
-      <th>Brier</th>
-      <th>Log loss</th>
-      <th>Calibration gap</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for b in buckets %}
-    {% set gap = (b.mean_actual - b.mean_predicted) %}
-    <tr>
-      <td><code>{{ b.source }}</code></td>
-      <td>{{ b.category }}</td>
-      <td>{{ "%.2f"|format(b.band_low) }} – {{ "%.2f"|format(b.band_high) }}</td>
-      <td>{{ b.n }}</td>
-      <td>{{ "%.3f"|format(b.mean_predicted) }}</td>
-      <td>{{ "%.3f"|format(b.mean_actual) }}</td>
-      <td>{{ "%.4f"|format(b.brier) }}</td>
-      <td>{{ "%.4f"|format(b.log_loss) }}</td>
-      <td class="{% if gap >= 0 %}pos{% else %}neg{% endif %}">
-        {{ "%+.3f"|format(gap) }}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+
+<!-- Calibration Reliability Curve Chart -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h3 style="font-size: 1.1rem; font-weight: 600;"><i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i> Reliability Diagram (Calibration Curve)</h3>
+    <span class="muted" style="font-size: 0.8rem;">Dashed line represents perfect 1:1 calibration</span>
+  </div>
+  <div style="height: 300px; position: relative;">
+    <canvas id="calibrationChart"></canvas>
+  </div>
+</div>
+
+<h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;"><i class="fa-solid fa-table-cells"></i> Calibration Decile Buckets</h2>
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>Source</th>
+        <th>Category</th>
+        <th>Probability Band</th>
+        <th>Samples (N)</th>
+        <th>Mean Predicted</th>
+        <th>Mean Actual</th>
+        <th>Brier Score</th>
+        <th>Log Loss</th>
+        <th>Calibration Gap</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in buckets %}
+      {% set gap = (b.mean_actual - b.mean_predicted) %}
+      <tr>
+        <td><code>{{ b.source }}</code></td>
+        <td><span class="pill" style="background: rgba(255,255,255,0.06); color: var(--text-main);">{{ b.category or "all" }}</span></td>
+        <td><code>{{ "%.2f"|format(b.band_low) }} – {{ "%.2f"|format(b.band_high) }}</code></td>
+        <td><strong>{{ b.n }}</strong></td>
+        <td>{{ "%.3f"|format(b.mean_predicted) }}</td>
+        <td>{{ "%.3f"|format(b.mean_actual) }}</td>
+        <td><code>{{ "%.4f"|format(b.brier) }}</code></td>
+        <td><code>{{ "%.4f"|format(b.log_loss) }}</code></td>
+        <td class="{% if gap >= 0 %}pos{% else %}neg{% endif %}">
+          {{ "%+.3f"|format(gap) }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
 
-<h2>Bias-tag performance</h2>
+<h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; margin-top: 2rem;"><i class="fa-solid fa-tags"></i> Bias-Tag Performance</h2>
 {% if not bias_rows %}
-<p class="muted">No resolved signals carry bias tags yet.</p>
+  <div class="card" style="padding: 1.5rem; color: var(--text-muted); font-size: 0.9rem;">
+    No resolved signals carry specific bias tags yet.
+  </div>
 {% else %}
-<table>
-  <thead>
-    <tr>
-      <th>Tag</th>
-      <th>N</th>
-      <th>Hit rate</th>
-      <th>Mean Brier</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for r in bias_rows %}
-    <tr>
-      <td><code>{{ r.tag }}</code></td>
-      <td>{{ r.n }}</td>
-      <td>{{ "%.1f%%"|format(100 * r.hit_rate) }}</td>
-      <td>{{ "%.4f"|format(r.brier) }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>Bias Tag</th>
+        <th>Samples (N)</th>
+        <th>Hit Rate</th>
+        <th>Mean Brier Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in bias_rows %}
+      <tr>
+        <td><code>{{ r.tag }}</code></td>
+        <td>{{ r.n }}</td>
+        <td class="pos">{{ "%.1f%%"|format(100 * r.hit_rate) }}</td>
+        <td><code>{{ "%.4f"|format(r.brier) }}</code></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
 
-<p class="updated">Edge mode: <code>{{ edge_mode }}</code>
-  · Active sources: {% for k, v in active_sources.items() %}{{ k }}={{ "on" if v else "off" }}{% if not loop.last %}, {% endif %}{% endfor %}
-</p>
+<div class="card" style="margin-top: 2rem; background: rgba(255,255,255,0.02);">
+  <p class="muted" style="font-size: 0.85rem;">
+    <i class="fa-solid fa-sliders"></i> Edge Mode: <code>{{ edge_mode }}</code>
+    &nbsp;·&nbsp; Active Sources: 
+    {% for k, v in active_sources.items() %}
+      <span class="pill" style="font-size: 0.7rem; background: {{ 'rgba(16,185,129,0.15)' if v else 'rgba(255,255,255,0.05)' }}; color: {{ '#34d399' if v else '#6b7280' }};">
+        {{ k }}={{ "ON" if v else "OFF" }}
+      </span>
+    {% endfor %}
+  </p>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('calibrationChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const buckets = [
+      {% for b in buckets %}
+        { pred: {{ b.mean_predicted }}, act: {{ b.mean_actual }}, n: {{ b.n }} },
+      {% endfor %}
+    ];
+
+    // Sort by predicted probability
+    buckets.sort((a,b) => a.pred - b.pred);
+
+    const predPoints = buckets.map(b => ({ x: b.pred, y: b.act }));
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            label: 'Actual vs Predicted',
+            data: predPoints,
+            borderColor: '#10b981',
+            backgroundColor: '#10b981',
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            showLine: true,
+            tension: 0.1
+          },
+          {
+            label: 'Ideal 1:1 Calibration',
+            data: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+            borderColor: '#6b7280',
+            borderDash: [5, 5],
+            pointRadius: 0,
+            showLine: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            min: 0,
+            max: 1,
+            title: { display: true, text: 'Mean Predicted Probability', color: '#9ca3af' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            ticks: { color: '#9ca3af' }
+          },
+          y: {
+            min: 0,
+            max: 1,
+            title: { display: true, text: 'Mean Actual Outcome', color: '#9ca3af' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            ticks: { color: '#9ca3af' }
+          }
+        },
+        plugins: {
+          legend: { labels: { color: '#f3f4f6' } }
+        }
+      }
+    });
+  });
+</script>
+
 {% endblock %}

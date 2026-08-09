@@ -137,3 +137,23 @@ async def test_api_performance_endpoint(db):
         assert r.status_code == 200
         data = r.json()
         assert "performance" in data
+
+
+@pytest.mark.asyncio
+async def test_healthz_endpoint(db):
+    with _make_client(db) as c:
+        r = c.get("/healthz")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["status"] == "ok"
+        assert data["database"] == "connected"
+
+
+@pytest.mark.asyncio
+async def test_metrics_endpoint(db):
+    with _make_client(db) as c:
+        r = c.get("/metrics")
+        assert r.status_code == 200
+        data = r.json()
+        assert "traders_total" in data
+        assert "traders_live" in data
