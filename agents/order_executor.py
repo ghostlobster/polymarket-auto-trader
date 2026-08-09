@@ -11,6 +11,7 @@ The LLM is only consulted for nuanced limit-order placement; the slippage
 gate is deterministic.
 """
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -60,11 +61,51 @@ class OrderExecutorAgent(BaseAgent):
             max_tokens=1024,
         )
 
-    async def execute(self, signal: Signal, size_usdc: float) -> Order | None:
+    async def execute_twap(
+        self,
+        signal: Signal,
+        size_usdc: float,
+        slices: int = 3,
+        interval_secs: float = 1.0,
+    ) -> list[Order]:
+        """
+        Time-Weighted Average Price (TWAP) order slicing.
+        Splits a large trade into `slices` smaller orders executed across `interval_secs`.
+        """
+        if self._settings.dry_run:
+            log.info("DRY RUN — skipping TWAP order placement", signal_id=signal.id, size=size_usdc)
+            return []
+
+        slice_size = size_usdc / max(slices, 1)
+        placed_orders: list[Order] = []
+        log.info(
+            "Executing TWAP order slice pass",
+            signal_id=signal.id,
+            total_size=size_usdc,
+            slices=slices,
+            slice_size=slice_size,
+        )
+
+        for i in range(slices):
+            order = await self.execute(signal, slice_size, is_twap_slice=True)
+            if order and order.status in (OrderStatus.OPEN, OrderStatus.FILLED, OrderStatus.PENDING):
+                placed_orders.append(order)
+            if i < slices - 1 and interval_secs > 0:
+                await asyncio.sleep(interval_secs)
+
+        return placed_orders
+
+    async def execute(self, signal: Signal, size_usdc: float, is_twap_slice: bool = False) -> Order | None:
         """Execute a trade for the given signal. Returns the Order object."""
         if self._settings.dry_run:
             log.info("DRY RUN — skipping order placement", signal_id=signal.id, size=size_usdc)
             return None
+
+        # Check if TWAP slicing should be triggered for large notional trade
+        twap_threshold = getattr(self._settings, "twap_slice_threshold_usdc", 100.0)
+        if not is_twap_slice and size_usdc >= twap_threshold:
+            slices = await self.execute_twap(signal, size_usdc)
+            return slices[0] if slices else None
 
         # 1. Fetch book + compute slippage budget
         try:
