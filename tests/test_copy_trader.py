@@ -82,7 +82,7 @@ async def test_copy_paper_records_leader_trade_and_order(settings, tmp_path):
         }
     )
 
-    agent = CopyTraderAgent(settings, data, poly, db, risk=None)
+    agent = CopyTraderAgent(settings, data, poly, db, risk=None)  # type: ignore[arg-type]
     summary = await agent.cycle()
 
     assert summary["events"] == 1
@@ -100,6 +100,7 @@ async def test_copy_paper_records_leader_trade_and_order(settings, tmp_path):
     assert paper_orders[0].status == "FILLED"
 
     refreshed = await db.get_tracked_trader("0xleader")
+    assert refreshed is not None
     assert refreshed.last_seen_ts == ts
 
     await db.close()
@@ -135,7 +136,7 @@ async def test_copy_dedupes_repeated_event(settings):
         "price": 0.50,
     }
     data = FakeData({"0xleader": [ev]})
-    agent = CopyTraderAgent(settings, data, FakePoly(book), db, risk=None)
+    agent = CopyTraderAgent(settings, data, FakePoly(book), db, risk=None)  # type: ignore[arg-type]
     await agent.cycle()
     # Re-run — dedupe should make it a no-op
     summary = await agent.cycle()
@@ -177,7 +178,7 @@ async def test_shadow_status_records_but_does_not_execute(settings):
         "price": 0.50,
     }
     data = FakeData({"0xleader": [ev]})
-    agent = CopyTraderAgent(settings, data, FakePoly(book), db, risk=None)
+    agent = CopyTraderAgent(settings, data, FakePoly(book), db, risk=None)  # type: ignore[arg-type]
     await agent.cycle()
 
     leader_trades = await db.get_leader_trades("0xleader")

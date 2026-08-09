@@ -43,7 +43,7 @@ async def test_market_buy_walks_book(db):
             ),
         }
     )
-    broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=1000)
+    broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=1000)  # type: ignore[arg-type]
 
     order = await broker.place_market_order(
         token_id="t1",
@@ -67,7 +67,7 @@ async def test_limit_buy_skips_above_limit(db):
             "t1": _book(asks=[{"price": 0.60, "size": 100}]),
         }
     )
-    broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=1000)
+    broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=1000)  # type: ignore[arg-type]
     order = await broker.place_limit_order(
         token_id="t1",
         side=OrderSide.BUY,
@@ -90,7 +90,7 @@ async def test_sell_realizes_pnl(db):
             ),
         }
     )
-    broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=1000)
+    broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=1000)  # type: ignore[arg-type]
     await broker.place_market_order(
         token_id="t1",
         side=OrderSide.BUY,
@@ -120,7 +120,7 @@ async def test_balance_tracks_open_cost_basis(db):
             "t1": _book(asks=[{"price": 0.40, "size": 100}]),
         }
     )
-    broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=100)
+    broker = PaperBroker(poly, db, wallet_label="0xLEAD", starting_usdc=100)  # type: ignore[arg-type]
     await broker.place_market_order(
         token_id="t1",
         side=OrderSide.BUY,

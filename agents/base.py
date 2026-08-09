@@ -66,9 +66,9 @@ class BaseAgent:
             response = await self._client.messages.create(
                 model=self.model,
                 max_tokens=self.max_tokens,
-                system=system,
-                tools=self.tools or [],
-                messages=messages,
+                system=system,  # type: ignore[arg-type]
+                tools=self.tools or [],  # type: ignore[arg-type]
+                messages=messages,  # type: ignore[arg-type]
             )
 
             # Accumulate assistant message

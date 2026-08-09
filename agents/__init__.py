@@ -1,4 +1,20 @@
+from typing import TYPE_CHECKING
+
 from .base import BaseAgent
+
+if TYPE_CHECKING:
+    from .calibration_auditor import CalibrationAuditor
+    from .copy_audit import CopyAuditAgent
+    from .copy_executor import CopyExecutor
+    from .copy_trader import CopyTraderAgent
+    from .market_scanner import MarketScannerAgent
+    from .orchestrator import OrchestratorAgent
+    from .order_executor import OrderExecutorAgent
+    from .portfolio_monitor import PortfolioMonitorAgent
+    from .research_analyst import ResearchAnalystAgent
+    from .risk_manager import RiskManagerAgent
+    from .signal_generator import SignalGeneratorAgent
+    from .trader_discovery import TraderDiscoveryAgent
 
 
 def __getattr__(name):
