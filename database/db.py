@@ -476,9 +476,7 @@ class Database:
         await self.conn.commit()
 
     async def get_total_realized_pnl(self) -> float:
-        async with self.conn.execute(
-            "SELECT COALESCE(SUM(realized_pnl), 0) FROM positions"
-        ) as cur:
+        async with self.conn.execute("SELECT COALESCE(SUM(realized_pnl), 0) FROM positions") as cur:
             row = await cur.fetchone()
         return float(row[0]) if row else 0.0
 

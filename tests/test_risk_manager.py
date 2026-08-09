@@ -256,8 +256,22 @@ async def test_risk_manager_assess_honors_explicit_size():
 
 def test_kelly_with_calibration_factor():
     # Base size with calibration_factor = 0.5 should cut position size in half
-    res_base = kelly_size(edge=0.20, market_price=0.40, side="YES", bankroll=1000.0, kelly_fraction=0.25, calibration_factor=1.0)
-    res_calib = kelly_size(edge=0.20, market_price=0.40, side="YES", bankroll=1000.0, kelly_fraction=0.25, calibration_factor=0.5)
+    res_base = kelly_size(
+        edge=0.20,
+        market_price=0.40,
+        side="YES",
+        bankroll=1000.0,
+        kelly_fraction=0.25,
+        calibration_factor=1.0,
+    )
+    res_calib = kelly_size(
+        edge=0.20,
+        market_price=0.40,
+        side="YES",
+        bankroll=1000.0,
+        kelly_fraction=0.25,
+        calibration_factor=0.5,
+    )
     assert res_calib.size_usdc == pytest.approx(res_base.size_usdc * 0.5, abs=1e-3)
     assert "calib=0.50" in res_calib.rationale
 
@@ -265,11 +279,18 @@ def test_kelly_with_calibration_factor():
 def test_exposure_buckets_with_explicit_position_category():
     settings = Settings(anthropic_api_key="test")
     agent = RiskManagerAgent(settings)
-    pos_crypto = Position(market_id="m1", token_id="t1", side="YES", size=100, avg_price=0.5, category="crypto", cluster_id="btc")
+    pos_crypto = Position(
+        market_id="m1",
+        token_id="t1",
+        side="YES",
+        size=100,
+        avg_price=0.5,
+        category="crypto",
+        cluster_id="btc",
+    )
     portfolio = make_portfolio(available=500, total=500, positions=[pos_crypto])
     sig_politics = make_signal(category="politics", cluster_id="elections")
-    
+
     cluster, category, window = agent._exposure_buckets(portfolio, sig_politics)
     assert category.get("politics", 0.0) == 0.0
     assert category.get("crypto", 0.0) == 50.0
-

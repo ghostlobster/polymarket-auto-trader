@@ -106,6 +106,7 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
     async def healthz():
         """Operational health check endpoint for monitoring/readiness probes."""
         from datetime import datetime, timezone
+
         try:
             traders = await db.get_tracked_traders()
             return {

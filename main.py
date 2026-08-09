@@ -212,9 +212,15 @@ async def main() -> None:
     signal_module.signal(signal_module.SIGTERM, _handle_signal)
 
     tasks = [
-        asyncio.create_task(supervised_task("thesis", thesis_loop, orchestrator, settings, shutdown)),
-        asyncio.create_task(supervised_task("calibration", calibration_loop, auditor, settings, shutdown)),
-        asyncio.create_task(supervised_task("snapshotter", snapshot_loop, snapshotter, settings, shutdown)),
+        asyncio.create_task(
+            supervised_task("thesis", thesis_loop, orchestrator, settings, shutdown)
+        ),
+        asyncio.create_task(
+            supervised_task("calibration", calibration_loop, auditor, settings, shutdown)
+        ),
+        asyncio.create_task(
+            supervised_task("snapshotter", snapshot_loop, snapshotter, settings, shutdown)
+        ),
     ]
 
     from web.server import build_app
@@ -253,13 +259,19 @@ async def main() -> None:
         audit = CopyAuditAgent(settings, db, mark_to_market=mark_to_market)
 
         tasks.append(
-            asyncio.create_task(supervised_task("discovery", discovery_loop, discovery, settings, shutdown))
+            asyncio.create_task(
+                supervised_task("discovery", discovery_loop, discovery, settings, shutdown)
+            )
         )
         tasks.append(
-            asyncio.create_task(supervised_task("copy_trader", copy_loop, copy_agent, settings, shutdown))
+            asyncio.create_task(
+                supervised_task("copy_trader", copy_loop, copy_agent, settings, shutdown)
+            )
         )
         tasks.append(
-            asyncio.create_task(supervised_task("copy_audit", audit_loop, audit, settings, shutdown))
+            asyncio.create_task(
+                supervised_task("copy_audit", audit_loop, audit, settings, shutdown)
+            )
         )
 
     log.info("Loops running", count=len(tasks))

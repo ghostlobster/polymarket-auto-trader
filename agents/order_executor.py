@@ -88,14 +88,20 @@ class OrderExecutorAgent(BaseAgent):
 
         for i in range(slices):
             order = await self.execute(signal, slice_size, is_twap_slice=True)
-            if order and order.status in (OrderStatus.OPEN, OrderStatus.FILLED, OrderStatus.PENDING):
+            if order and order.status in (
+                OrderStatus.OPEN,
+                OrderStatus.FILLED,
+                OrderStatus.PENDING,
+            ):
                 placed_orders.append(order)
             if i < slices - 1 and interval_secs > 0:
                 await asyncio.sleep(interval_secs)
 
         return placed_orders
 
-    async def execute(self, signal: Signal, size_usdc: float, is_twap_slice: bool = False) -> Order | None:
+    async def execute(
+        self, signal: Signal, size_usdc: float, is_twap_slice: bool = False
+    ) -> Order | None:
         """Execute a trade for the given signal. Returns the Order object."""
         if self._settings.dry_run:
             log.info("DRY RUN — skipping order placement", signal_id=signal.id, size=size_usdc)

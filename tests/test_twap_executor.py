@@ -20,6 +20,7 @@ class FakePoly:
 
     async def place_limit_order(self, **kwargs):
         from models import Order, OrderStatus, OrderType
+
         return Order(
             id="order-twap-1",
             market_id=kwargs.get("market_id", ""),
@@ -33,6 +34,7 @@ class FakePoly:
 
     async def place_market_order(self, **kwargs):
         from models import Order, OrderStatus, OrderType
+
         return Order(
             id="order-twap-m",
             market_id=kwargs.get("market_id", ""),
