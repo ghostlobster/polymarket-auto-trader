@@ -150,6 +150,18 @@ def build_app(db: Database, copy_agent=None, mark_to_market=None) -> FastAPI:
             },
         )
 
+    @app.get("/api/calibration")
+    async def api_calibration(current_user: dict = Depends(require_auth)):
+        """JSON endpoint returning calibration buckets and bias summary."""
+        buckets = await db.get_calibration_buckets()
+        return {"buckets": buckets, "edge_mode": settings.edge_mode}
+
+    @app.get("/api/performance")
+    async def api_performance(current_user: dict = Depends(require_auth)):
+        """JSON endpoint returning copy performance rollups."""
+        performance = await db.get_all_copy_performance()
+        return {"performance": [p.model_dump() for p in performance]}
+
     @app.get("/profiles", response_class=HTMLResponse)
     async def list_profiles(
         request: Request,

@@ -118,3 +118,22 @@ async def test_set_preset(db):
         assert r.status_code == 303
     refreshed = await db.get_tracked_trader("0xabc")
     assert refreshed.preset == "conservative"
+
+
+@pytest.mark.asyncio
+async def test_api_calibration_endpoint(db):
+    with _make_client(db) as c:
+        r = c.get("/api/calibration")
+        assert r.status_code == 200
+        data = r.json()
+        assert "buckets" in data
+        assert "edge_mode" in data
+
+
+@pytest.mark.asyncio
+async def test_api_performance_endpoint(db):
+    with _make_client(db) as c:
+        r = c.get("/api/performance")
+        assert r.status_code == 200
+        data = r.json()
+        assert "performance" in data
