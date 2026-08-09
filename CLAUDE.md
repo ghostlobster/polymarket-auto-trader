@@ -57,8 +57,10 @@ OrchestratorAgent.run_cycle()
 TraderDiscoveryAgent.discover()  (24h cadence) → leaderboard → LLM scoring → upsert tracked_traders
 CopyTraderAgent.cycle()          (30s cadence) → poll leader trades → apply strategy preset → CopyExecutor
 CopyAuditAgent.cycle()           (60s cadence) → reconcile expected vs actual copies, demote on miss rate
-web/server.py FastAPI            (on-demand)   → profile review UI at /profiles
+web/server.py FastAPI            (on-demand)   → review UI at /profiles, /calibration, /healthz, /metrics
 ```
+
+All background loops in `main.py` are wrapped in `supervised_task` for automatic recovery and exponential backoff on unhandled failures.
 
 ### Agent base class
 
